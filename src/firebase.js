@@ -68,6 +68,9 @@ if (!quotaExhausted) {
       }
     }
   }
+} else {
+  // Explicitly ensure firestoreInstance is null if quota is known to be exhausted
+  firestoreInstance = null;
 }
 
 // Safe fallback proxy for db so quota exhaustion or offline state never throws unhandled rejections

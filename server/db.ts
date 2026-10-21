@@ -765,8 +765,11 @@ export const dbEngine = {
       const email = String(raw.email || "").trim().toLowerCase();
       const nKey = fn ? (ln ? `${fn}_${ln}` : `${fn}_single`) : "";
 
-      if (raw.forceImport || raw.allowReimport) {
+      if (userEmail === "google_sheets_autosync" || userEmail === "google_sheet_webhook" || raw.forceImport || raw.allowReimport) {
         if (rawId) unrecordDeletion(rawId);
+        if (clanNum) unrecordDeletion(clanNum);
+        if (email) unrecordDeletion(email);
+        if (nKey) unrecordDeletion(nKey);
       } else if (isMemberIdDeleted(rawId, clanNum, email, nKey)) {
         continue; // Never re-import deleted member unless forced
       }
@@ -859,7 +862,7 @@ export const dbEngine = {
     const finalList = Array.from(map.values());
     writeJsonFile(membersJsonPath, finalList);
 
-    if ((added > 0 || updated > 0) && firestoreDb && isServerFirestoreAvailable()) {
+    if (firestoreDb && isServerFirestoreAvailable()) {
       try {
         const batch = writeBatch(firestoreDb);
         finalList.forEach((m) => {
@@ -867,6 +870,13 @@ export const dbEngine = {
           batch.set(ref, sanitizeForFirestore(m), { merge: true });
         });
         await batch.commit();
+
+        const activeList = finalList.filter((m: any) => m && !m.deleted && m.active !== false);
+        await setDoc(doc(firestoreDb, "siaraMainaClan", "records"), {
+          project: "SiaraMaina Clan Informatics",
+          records: activeList.map(sanitizeForFirestore),
+          lastUpdated: new Date().toISOString()
+        }, { merge: true });
       } catch (err: any) {
         handleServerFirestoreError(err, "importMembersBatch");
       }

@@ -132,6 +132,19 @@
     window.removePersistentDeletedId = removePersistentDeletedId;
     window.isMemberDeleted = isMemberDeleted;
 
+    // Embedded Default Master Google Sheet & Database Config for all Remote Users upon Login
+    (function() {
+      try {
+        var defUrl = "https://script.google.com/macros/s/AKfycbyLlYZ3pw4-5ENtn_wf6tInqNRAPmHCdDmzJx40g2hUPNVyK3XOcleP9_MaGqktg6V2/exec";
+        if (!localStorage.getItem("siara_google_sheet_url")) {
+          localStorage.setItem("siara_google_sheet_url", defUrl);
+        }
+        if (!localStorage.getItem("siara_google_webapp_url")) {
+          localStorage.setItem("siara_google_webapp_url", defUrl);
+        }
+      } catch(e) {}
+    })();
+
     window.toggleMenu = function(id) {
       var menu = document.getElementById(id);
       if (!menu) return;
@@ -4205,7 +4218,8 @@ function doGet(e) {
   <script>
     window.openDataSheetsPortal = function() {
       var savedUrl = localStorage.getItem("siara_google_sheet_url") || "";
-      if (savedUrl) {
+      // If URL exists and looks like a sheet edit/view URL, open it; otherwise open import modal
+      if (savedUrl && savedUrl.includes("docs.google.com/spreadsheets/")) {
         var editUrl = savedUrl.replace(/\/export\?format=csv.*$/, "/edit").replace(/\/export.*$/, "/edit");
         window.open(editUrl, "_blank");
         showToast("📈 Opening Google Sheets Data Portal. Fill in or edit your data there, then use 'Import from Sheets' to sync back!", "success");
@@ -4337,7 +4351,12 @@ function doGet(e) {
       var modal = document.getElementById("googleSheetsImportModal");
       var input = document.getElementById("googleSheetUrlInput");
       if (input) {
-        input.value = localStorage.getItem("siara_google_sheet_url") || localStorage.getItem("siara_google_webapp_url") || "";
+        var defUrl = "https://script.google.com/macros/s/AKfycbyLlYZ3pw4-5ENtn_wf6tInqNRAPmHCdDmzJx40g2hUPNVyK3XOcleP9_MaGqktg6V2/exec";
+        var val = localStorage.getItem("siara_google_sheet_url") || localStorage.getItem("siara_google_webapp_url") || defUrl;
+        if (!localStorage.getItem("siara_google_sheet_url")) {
+          localStorage.setItem("siara_google_sheet_url", defUrl);
+        }
+        input.value = val;
       }
       if (modal) {
         modal.classList.add("open");

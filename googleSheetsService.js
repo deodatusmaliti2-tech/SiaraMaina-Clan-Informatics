@@ -778,7 +778,32 @@
     startAutoSync: function(intervalMs) {
       if (this._autoSyncTimer) return;
       var ms = intervalMs || 15000;
+      var lastActivityTime = Date.now();
+      var isIdle = false;
+
+      function resetInactivity() {
+        lastActivityTime = Date.now();
+        if (isIdle) {
+          isIdle = false;
+          if (GoogleSheetsDB.getConnectedSheetId()) {
+            GoogleSheetsDB.syncSheetToApp();
+          }
+        }
+      }
+
+      if (typeof window !== 'undefined') {
+        ['mousemove', 'keydown', 'touchstart', 'click', 'scroll'].forEach(function(evt) {
+          window.addEventListener(evt, resetInactivity, { passive: true });
+        });
+      }
+
       this._autoSyncTimer = setInterval(function() {
+        // Pause sync if inactive for more than 10 seconds to save internet data
+        if (Date.now() - lastActivityTime > 10000) {
+          isIdle = true;
+          return;
+        }
+
         if (GoogleSheetsDB.getConnectedSheetId()) {
           GoogleSheetsDB.syncSheetToApp();
         }
@@ -787,7 +812,7 @@
       if (typeof window !== 'undefined' && typeof document !== 'undefined') {
         document.addEventListener('visibilitychange', function() {
           if (document.visibilityState === 'visible' && GoogleSheetsDB.getConnectedSheetId()) {
-            GoogleSheetsDB.syncSheetToApp();
+            resetInactivity();
           }
         });
       }
