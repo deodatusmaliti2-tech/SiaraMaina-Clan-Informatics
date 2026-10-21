@@ -80,7 +80,13 @@ async function handleQuotaExhaustion() {
       localStorage.setItem('siara_firestore_quota_exhausted', 'true');
     }
   } catch (e2) {}
-  await terminateFirestore();
+  if (firestoreInstance) {
+    try {
+      await terminate(firestoreInstance);
+    } catch (e) {
+      console.warn('[Firestore Quota] Error terminating Firestore instance:', e);
+    }
+  }
   firestoreInstance = null;
   console.warn('[Firestore Quota] Daily free tier quota reached. Firestore terminated. Application gracefully utilizing local resilient storage.');
 }

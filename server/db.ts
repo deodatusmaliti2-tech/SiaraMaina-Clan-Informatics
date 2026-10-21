@@ -873,6 +873,19 @@ export const dbEngine = {
       }
     }
 
+    // Identify records to delete (only if autosyncing)
+    if (userEmail === "server_autosync") {
+      const incomingIds = new Set(incomingList.map(r => String(r.id || r.recordId || "").trim()).filter(Boolean));
+      currentList.forEach(m => {
+        if (m.id && !incomingIds.has(m.id) && !m.deleted) {
+          m.deleted = true;
+          m.active = false;
+          m.deletedAt = new Date().toISOString();
+          registerMemberInMaps(m);
+        }
+      });
+    }
+
     const finalList = Array.from(map.values());
     writeJsonFile(membersJsonPath, finalList);
 

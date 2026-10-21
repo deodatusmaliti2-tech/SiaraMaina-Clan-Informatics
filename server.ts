@@ -8,8 +8,15 @@ import { apiRouter } from "./server/routes";
 import { metricsEngine } from "./server/metrics";
 import { syncManager } from "./server/sync";
 import { dbEngine } from "./server/db";
+import cron from "node-cron";
+import { serverSyncSheetToApp } from "./server/sheets";
 
 dotenv.config();
+
+// Schedule server-side sync every minute to ensure real-time updates for all clients
+cron.schedule("* * * * *", () => {
+  serverSyncSheetToApp();
+});
 
 const app = express();
 const PORT = 3000;
