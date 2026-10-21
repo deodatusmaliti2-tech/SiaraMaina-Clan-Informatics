@@ -73,6 +73,18 @@ if (!quotaExhausted) {
   firestoreInstance = null;
 }
 
+async function handleQuotaExhaustion() {
+  quotaExhausted = true;
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('siara_firestore_quota_exhausted', 'true');
+    }
+  } catch (e2) {}
+  await terminateFirestore();
+  firestoreInstance = null;
+  console.warn('[Firestore Quota] Daily free tier quota reached. Firestore terminated. Application gracefully utilizing local resilient storage.');
+}
+
 // Safe fallback proxy for db so quota exhaustion or offline state never throws unhandled rejections
 const safeDbProxy = new Proxy({}, {
   get(target, prop) {
@@ -84,16 +96,10 @@ const safeDbProxy = new Proxy({}, {
           try {
             const res = val.apply(firestoreInstance, args);
             if (res && typeof res.catch === 'function') {
-              return res.catch(err => {
+              return res.catch(async err => {
                 const msg = String(err?.message || err || '').toLowerCase();
                 if (msg.includes('resource-exhausted') || msg.includes('quota') || msg.includes('8')) {
-                  quotaExhausted = true;
-                  try {
-                    if (typeof localStorage !== 'undefined') {
-                      localStorage.setItem('siara_firestore_quota_exhausted', 'true');
-                    }
-                  } catch (e2) {}
-                  console.warn('[Firestore Quota] Daily free tier quota reached. Application gracefully utilizing local resilient storage.');
+                  await handleQuotaExhaustion();
                   return {};
                 }
                 throw err;
@@ -103,12 +109,7 @@ const safeDbProxy = new Proxy({}, {
           } catch (err) {
             const msg = String(err?.message || err || '').toLowerCase();
             if (msg.includes('resource-exhausted') || msg.includes('quota') || msg.includes('8')) {
-              quotaExhausted = true;
-              try {
-                if (typeof localStorage !== 'undefined') {
-                  localStorage.setItem('siara_firestore_quota_exhausted', 'true');
-                }
-              } catch (e2) {}
+              handleQuotaExhaustion();
               return {};
             }
             throw err;

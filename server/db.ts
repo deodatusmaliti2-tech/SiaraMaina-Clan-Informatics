@@ -50,7 +50,20 @@ try {
 }
 export const firestoreDb = dbInstance;
 
-let serverFirestoreQuotaExhausted = false;
+const quotaFlagPath = path.resolve(process.cwd(), "server/data/firestore_quota.flag");
+
+function isQuotaExhaustedPersisted(): boolean {
+  return fs.existsSync(quotaFlagPath);
+}
+
+function setQuotaExhaustedPersisted() {
+  if (!fs.existsSync(path.dirname(quotaFlagPath))) {
+    fs.mkdirSync(path.dirname(quotaFlagPath), { recursive: true });
+  }
+  fs.writeFileSync(quotaFlagPath, "true");
+}
+
+let serverFirestoreQuotaExhausted = isQuotaExhaustedPersisted();
 
 export function handleServerFirestoreError(err: any, context: string) {
   if (!err) return;
@@ -67,6 +80,7 @@ export function handleServerFirestoreError(err: any, context: string) {
   ) {
     if (!serverFirestoreQuotaExhausted) {
       serverFirestoreQuotaExhausted = true;
+      setQuotaExhaustedPersisted();
       console.warn(`[${context}] Firestore daily free quota reached. Server seamlessly operating in local JSON database mode.`);
     }
   } else {

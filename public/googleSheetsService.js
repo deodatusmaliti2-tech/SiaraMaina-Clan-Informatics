@@ -777,8 +777,9 @@
 
     startAutoSync: function(intervalMs) {
       if (this._autoSyncTimer) return;
-      var ms = intervalMs || 15000;
+      var syncInterval = intervalMs || 15000;
       var lastActivityTime = Date.now();
+      var lastSyncTime = Date.now();
       var isIdle = false;
 
       function resetInactivity() {
@@ -787,6 +788,7 @@
           isIdle = false;
           if (GoogleSheetsDB.getConnectedSheetId()) {
             GoogleSheetsDB.syncSheetToApp();
+            lastSyncTime = Date.now();
           }
         }
       }
@@ -798,16 +800,22 @@
       }
 
       this._autoSyncTimer = setInterval(function() {
-        // Pause sync if inactive for more than 10 seconds to save internet data
+        // Check for inactivity (10s threshold)
         if (Date.now() - lastActivityTime > 10000) {
           isIdle = true;
           return;
         }
 
-        if (GoogleSheetsDB.getConnectedSheetId()) {
-          GoogleSheetsDB.syncSheetToApp();
+        isIdle = false;
+
+        // Trigger sync if interval passed
+        if (Date.now() - lastSyncTime >= syncInterval) {
+          if (GoogleSheetsDB.getConnectedSheetId()) {
+            GoogleSheetsDB.syncSheetToApp();
+            lastSyncTime = Date.now();
+          }
         }
-      }, ms);
+      }, 1000); // Check every 1 second
 
       if (typeof window !== 'undefined' && typeof document !== 'undefined') {
         document.addEventListener('visibilitychange', function() {
