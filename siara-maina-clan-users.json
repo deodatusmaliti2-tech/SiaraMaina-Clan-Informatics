@@ -1,0 +1,73 @@
+[
+  {
+    "id": "admin-recovery",
+    "username": "admin-recovery",
+    "passwordHash": "db6d64cf523810bc2cb8f98f37965f4225ac65ef68a263715b1bd633fd047ad1",
+    "displayName": "Clan Administrator",
+    "role": "admin",
+    "active": true
+  },
+  {
+    "id": "admin-recovery",
+    "username": "admin-recovery",
+    "passwordHash": "db6d64cf523810bc2cb8f98f37965f4225ac65ef68a263715b1bd633fd047ad1",
+    "displayName": "Clan Administrator",
+    "role": "admin",
+    "active": true
+  },
+  {
+    "id": "admin-1",
+    "username": "admin",
+    "passwordHash": "db6d64cf523810bc2cb8f98f37965f4225ac65ef68a263715b1bd633fd047ad1",
+    "displayName": "Clan Administrator",
+    "role": "admin",
+    "active": true
+  },
+  {
+    "id": "user-1788623201341",
+    "username": "Deodatus",
+    "passwordHash": "df2f628a281adca5d643c42ad1cd55c65c9ec56cc05aecaf905d81063b64ef13",
+    "displayName": "Deodatus",
+    "role": "admin",
+    "active": true
+  },
+  {
+    "id": "user-1788709605717",
+    "username": "Victor",
+    "passwordHash": "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4",
+    "displayName": "Victor",
+    "role": "viewer",
+    "active": true
+  },
+  {
+    "id": "user-1788714597666",
+    "username": "Pius",
+    "passwordHash": "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4",
+    "displayName": "Pius",
+    "role": "editor",
+    "active": true
+  },
+  {
+    "id": "user-1789407695723",
+    "username": "Honory",
+    "passwordHash": "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4",
+    "displayName": "Honory",
+    "role": "editor",
+    "active": true
+  },
+  {
+    "uid": "user-b56b5484-7",
+    "email": "dmaliti@researchlinktz.com",
+    "displayName": "dmaliti",
+    "role": "editor",
+    "institution": "SiaraMaina Clan Informatics",
+    "branch": "all",
+    "passwordHash": "a049fe50f7bbdee19500a9ce3c02dcdbf1a190b66c04650411b60e225d76c716",
+    "salt": "a49957f6784c2ef1af2a0b2ae4fd7f00",
+    "createdAt": "2026-10-10T13:50:04.546Z",
+    "lastLogin": "2026-10-10T13:50:04.546Z",
+    "status": "active",
+    "active": true,
+    "provider": "password"
+  }
+]

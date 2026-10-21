@@ -1,0 +1,170 @@
+[
+  {
+    "id": "log-1792401456554",
+    "eventType": "USER_DELETED",
+    "action": "Administrator deodatusmaliti2@gmail.com deleted user user-532f18b2b8cc",
+    "actorEmail": "deodatusmaliti2@gmail.com",
+    "targetId": "user-532f18b2b8cc",
+    "timestamp": "2026-10-19T09:17:36.554Z"
+  },
+  {
+    "id": "log-1792401420618",
+    "eventType": "USER_DELETED",
+    "action": "Administrator deodatusmaliti2@gmail.com deleted user user-3y7jwmh2",
+    "actorEmail": "deodatusmaliti2@gmail.com",
+    "targetId": "user-3y7jwmh2",
+    "timestamp": "2026-10-19T09:17:00.618Z"
+  },
+  {
+    "id": "log-1792401373146",
+    "eventType": "USER_DELETED",
+    "action": "Administrator deodatusmaliti2@gmail.com deleted user SPFNuYpanNXzdKlc0IVLIzPInT02",
+    "actorEmail": "deodatusmaliti2@gmail.com",
+    "targetId": "SPFNuYpanNXzdKlc0IVLIzPInT02",
+    "timestamp": "2026-10-19T09:16:13.146Z"
+  },
+  {
+    "id": "log-1792401102669",
+    "eventType": "USER_PERMISSION_CHANGE",
+    "action": "Administrator deodatusmaliti2@gmail.com updated user admin@researchlinktz.com: role=editor, approved=true",
+    "actorEmail": "deodatusmaliti2@gmail.com",
+    "targetId": "user-532f18b2b8cc",
+    "timestamp": "2026-10-19T09:11:42.669Z"
+  },
+  {
+    "id": "log-1792400614931",
+    "eventType": "USER_PERMISSION_CHANGE",
+    "action": "Administrator deodatusmaliti2@gmail.com updated user admin@researchlinktz.com: role=viewer, approved=true",
+    "actorEmail": "deodatusmaliti2@gmail.com",
+    "targetId": "user-532f18b2b8cc",
+    "timestamp": "2026-10-19T09:03:34.931Z"
+  },
+  {
+    "id": "log-1792400582241",
+    "eventType": "USER_PERMISSION_CHANGE",
+    "action": "Administrator deodatusmaliti2@gmail.com updated user admin@researchlinktz.com: role=editor, approved=true",
+    "actorEmail": "deodatusmaliti2@gmail.com",
+    "targetId": "SPFNuYpanNXzdKlc0IVLIzPInT02",
+    "timestamp": "2026-10-19T09:03:02.241Z"
+  },
+  {
+    "id": "log-1792400021728",
+    "eventType": "USER_REGISTERED",
+    "action": "User registered remotely: admin@researchlinktz.com (Viewer (Default))",
+    "actorEmail": "admin@researchlinktz.com",
+    "actorUid": "user-532f18b2b8cc",
+    "timestamp": "2026-10-19T08:53:41.728Z"
+  },
+  {
+    "id": "log-1792236212639",
+    "eventType": "GITHUB_PUSH",
+    "action": "Published project files to deodatusmaliti2-tech/SiaraMaina-Clan-Informatics: Verified push after git repo initialization check",
+    "actorEmail": "deodatusmaliti2@gmail.com",
+    "targetId": "5678bbc",
+    "timestamp": "2026-10-17T11:23:32.639Z"
+  },
+  {
+    "id": "log-1792235965708",
+    "eventType": "GITHUB_PUSH",
+    "action": "Published project files to deodatusmaliti2-tech/SiaraMaina-Clan-Informatics: Update clan dataset (0 records) from SiaraMaina Clan Informatics",
+    "actorEmail": "deodatusmaliti2@gmail.com",
+    "targetId": "ok",
+    "timestamp": "2026-10-17T11:19:25.708Z"
+  },
+  {
+    "id": "log-1792235962828",
+    "eventType": "GITHUB_PUSH",
+    "action": "Published project files to deodatusmaliti2-tech/SiaraMaina-Clan-Informatics: Update clan dataset (0 records) from SiaraMaina Clan Informatics",
+    "actorEmail": "deodatusmaliti2@gmail.com",
+    "targetId": "ok",
+    "timestamp": "2026-10-17T11:19:22.828Z"
+  },
+  {
+    "id": "log-1792235867179",
+    "eventType": "GITHUB_PUSH",
+    "action": "Published project files to deodatusmaliti2-tech/SiaraMaina-Clan-Informatics: Full project sync verification from AI Studio",
+    "actorEmail": "deodatusmaliti2@gmail.com",
+    "targetId": "ok",
+    "timestamp": "2026-10-17T11:17:47.179Z"
+  },
+  {
+    "id": "log-1792235155603",
+    "eventType": "GITHUB_PUSH",
+    "action": "Published project files to deodatusmaliti2-tech/SiaraMaina-Clan-Informatics: Update clan dataset (80 records) from SiaraMaina Clan Informatics",
+    "actorEmail": "deodatusmaliti2@gmail.com",
+    "targetId": "ok",
+    "timestamp": "2026-10-17T11:05:55.603Z"
+  },
+  {
+    "id": "log-1792235153261",
+    "eventType": "GITHUB_PUSH",
+    "action": "Published project files to deodatusmaliti2-tech/SiaraMaina-Clan-Informatics: Update clan dataset (80 records) from SiaraMaina Clan Informatics",
+    "actorEmail": "deodatusmaliti2@gmail.com",
+    "targetId": "ok",
+    "timestamp": "2026-10-17T11:05:53.261Z"
+  },
+  {
+    "id": "log-1792234980946",
+    "eventType": "GITHUB_PUSH",
+    "action": "Published project files to deodatusmaliti2-tech/SiaraMaina-Clan-Informatics: Update clan dataset (0 records) from SiaraMaina Clan Informatics",
+    "actorEmail": "deodatusmaliti2@gmail.com",
+    "targetId": "ok",
+    "timestamp": "2026-10-17T11:03:00.946Z"
+  },
+  {
+    "id": "log-1792234979007",
+    "eventType": "GITHUB_PUSH",
+    "action": "Published project files to deodatusmaliti2-tech/SiaraMaina-Clan-Informatics: Update clan dataset (0 records) from SiaraMaina Clan Informatics",
+    "actorEmail": "deodatusmaliti2@gmail.com",
+    "targetId": "ok",
+    "timestamp": "2026-10-17T11:02:59.007Z"
+  },
+  {
+    "id": "log-1792234655374",
+    "eventType": "GITHUB_PUSH",
+    "action": "Published project files to deodatusmaliti2-tech/SiaraMaina-Clan-Informatics: Update clan dataset (0 records) from SiaraMaina Clan Informatics",
+    "actorEmail": "deodatusmaliti2@gmail.com",
+    "targetId": "ok",
+    "timestamp": "2026-10-17T10:57:35.374Z"
+  },
+  {
+    "id": "log-1792234638028",
+    "eventType": "GITHUB_PUSH",
+    "action": "Published project files to deodatusmaliti2-tech/SiaraMaina-Clan-Informatics: Update clan dataset (0 records) from SiaraMaina Clan Informatics",
+    "actorEmail": "deodatusmaliti2@gmail.com",
+    "targetId": "ok",
+    "timestamp": "2026-10-17T10:57:18.028Z"
+  },
+  {
+    "id": "log-1792231059663",
+    "eventType": "GITHUB_PUSH",
+    "action": "Published project files to deodatusmaliti2-tech/SiaraMaina-Clan-Informatics: Update clan dataset (2 records) from SiaraMaina Clan Informatics",
+    "actorEmail": "deodatusmaliti2@gmail.com",
+    "targetId": "ok",
+    "timestamp": "2026-10-17T09:57:39.664Z"
+  },
+  {
+    "id": "log-1792231057024",
+    "eventType": "GITHUB_PUSH",
+    "action": "Published project files to deodatusmaliti2-tech/SiaraMaina-Clan-Informatics: Update clan dataset (2 records) from SiaraMaina Clan Informatics",
+    "actorEmail": "deodatusmaliti2@gmail.com",
+    "targetId": "ok",
+    "timestamp": "2026-10-17T09:57:37.024Z"
+  },
+  {
+    "id": "log-1792230970825",
+    "eventType": "GITHUB_PUSH",
+    "action": "Published project files to deodatusmaliti2-tech/SiaraMaina-Clan-Informatics: Final verification server push",
+    "actorEmail": "deodatusmaliti2@gmail.com",
+    "targetId": "ok",
+    "timestamp": "2026-10-17T09:56:10.825Z"
+  },
+  {
+    "id": "log-1792230924528",
+    "eventType": "GITHUB_PUSH",
+    "action": "Published project files to deodatusmaliti2-tech/SiaraMaina-Clan-Informatics: Test server fallback push",
+    "actorEmail": "deodatusmaliti2@gmail.com",
+    "targetId": "ok",
+    "timestamp": "2026-10-17T09:55:24.528Z"
+  }
+]
