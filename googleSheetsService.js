@@ -338,6 +338,81 @@
     // 4. Read All Members from Google Sheet (supports both authenticated API & public sheet queries)
     readAllMembers: async function(spreadsheetId) {
       var id = spreadsheetId || this.getConnectedSheetId();
+
+      function normalizeSheetRow(raw, index) {
+        if (!raw) return null;
+        var fn = String(raw["First Name"] || raw.firstName || raw["Given Name"] || raw.fname || "").trim();
+        var ln = String(raw["Last Name"] || raw.lastName || raw["Surname"] || raw["Family Name"] || raw.lname || "").trim();
+        var cNum = String(raw["Clan Member Number"] || raw.clanMemberNumber || raw["Member Number"] || raw["Reg No"] || "").trim();
+        var em = String(raw["Email Address"] || raw.email || raw["E-mail"] || raw["Mail"] || "").trim();
+        var mId = String(raw["Member ID"] || raw.id || raw.recordId || "").trim();
+        var ph = String(raw["Telephone"] || raw.phone || raw["Mobile"] || raw["Cell"] || "").trim();
+
+        if (fn.toUpperCase() === "BY" && !ln && !cNum && !em) return null;
+        if (!mId && !fn && !ln && !cNum && !em && !ph) return null;
+
+        var isDec = String(raw["Life Status"] || raw.deceased || raw.status || "").toLowerCase() === "deceased" || raw.deceased === true || raw.deceased === "TRUE";
+        var resolvedId = mId || (cNum ? "rec-clan-" + cNum : ("rec_" + (fn || "member") + "_" + (ln || "single") + "_" + (index || Date.now())).toLowerCase().replace(/[^a-z0-9_]/g, "_"));
+
+        return {
+          id: resolvedId,
+          recordId: resolvedId,
+          clanMemberNumber: cNum,
+          firstName: fn,
+          middleName: String(raw["Middle Name"] || raw.middleName || raw["Other Names"] || "").trim(),
+          lastName: ln,
+          sex: String(raw["Sex"] || raw.sex || raw["Gender"] || "Not Recorded").trim(),
+          branchType: String(raw["Family Clan"] || raw.branchType || raw["Branch"] || raw["Clan Branch"] || "heritage").trim().toLowerCase(),
+          honorific: String(raw["Title / Honorific"] || raw.honorific || raw["Title"] || "").trim(),
+          dob: String(raw["Date of Birth"] || raw.dob || raw["Birth Date"] || "").trim(),
+          birthPeriod: String(raw["Historical Age"] || raw.birthPeriod || "").trim(),
+          placeOfBirth: String(raw["Place of Birth"] || raw.placeOfBirth || "").trim(),
+          deceased: isDec,
+          dod: String(raw["Date of Death"] || raw.dod || "").trim(),
+          deathAge: String(raw["Age at Death"] || raw.deathAge || "").trim(),
+          fatherId: (function(v) { var m = String(v || "").match(/\[([^\]]+)\]/); return m ? m[1].trim() : String(v || "").trim(); })(raw["Father Profile"] || raw.fatherId || raw.father),
+          motherId: (function(v) { var m = String(v || "").match(/\[([^\]]+)\]/); return m ? m[1].trim() : String(v || "").trim(); })(raw["Mother Profile"] || raw.motherId || raw.mother),
+          spouseId: (function(v) { var m = String(v || "").match(/\[([^\]]+)\]/); return m ? m[1].trim() : String(v || "").trim(); })(raw["Spouse Profile"] || raw.spouseId || raw.spouse),
+          maritalStatus: String(raw["Marital Status"] || raw.maritalStatus || "").trim(),
+          education: String(raw["Education Level"] || raw.education || "").trim(),
+          course: String(raw["Course / Area of Study"] || raw.course || "").trim(),
+          employment: String(raw["Employment Status"] || raw.employment || "").trim(),
+          occupation: String(raw["Occupation / Profession"] || raw.occupation || "").trim(),
+          organization: String(raw["Organisation / Employer"] || raw.organization || "").trim(),
+          religion: String(raw["Religious Affiliation"] || raw.religion || "").trim(),
+          denomination: String(raw["Denomination / Tradition"] || raw.denomination || "").trim(),
+          phone: ph,
+          whatsapp: String(raw["WhatsApp"] || raw.whatsapp || "").trim(),
+          email: em,
+          location: String(raw["Current Location"] || raw.location || raw["Address"] || "").trim(),
+          narrative: String(raw["Historical Location"] || raw.narrative || raw["Notes"] || "").trim()
+        };
+      }
+
+      // 0. Direct Google Apps Script Web App Endpoint Support
+      var webAppUrl = (id && id.includes('script.google.com')) ? id : this.getWebAppUrl();
+      if (webAppUrl) {
+        try {
+          var resp = await fetch(webAppUrl);
+          if (resp.ok) {
+            var raw = await resp.json();
+            var list = Array.isArray(raw) ? raw : (raw.members || raw.data || []);
+            if (Array.isArray(list) && list.length > 0) {
+              var membersFromWebApp = [];
+              for (var wi = 0; wi < list.length; wi++) {
+                var normalized = normalizeSheetRow(list[wi], wi);
+                if (normalized) membersFromWebApp.push(normalized);
+              }
+              if (membersFromWebApp.length > 0) {
+                return membersFromWebApp;
+              }
+            }
+          }
+        } catch(webAppErr) {
+          console.warn("Direct Apps Script fetch notice:", webAppErr);
+        }
+      }
+
       if (!id) throw new Error('No Google Spreadsheet connected.');
 
       var token = this.getAccessToken();
@@ -353,7 +428,7 @@
           var rows = data.values || [];
 
           if (rows.length < 2) {
-            return []; // No data rows
+            return [];
           }
 
           var headerRow = rows[0].map(function(h) { return String(h || '').trim(); });
@@ -370,25 +445,22 @@
               rec[key] = row[c] !== undefined && row[c] !== null ? String(row[c]).trim() : '';
             }
 
-            if (rec.id || rec.clanMemberNumber || rec.firstName || rec.lastName || rec.email || rec.phone) {
-              if (!rec.id) {
-                var baseId = rec.clanMemberNumber || (rec.firstName + (rec.lastName ? '_' + rec.lastName : '')) || ('member-' + Date.now() + '-' + r);
-                rec.id = 'member-' + String(baseId).toLowerCase().replace(/[^a-z0-9_]/g, '_');
-              }
-              if (rec.deceased === 'true' || rec.deceased === 'TRUE') rec.deceased = true;
-              if (rec.deceased === 'false' || rec.deceased === 'FALSE') rec.deceased = false;
+            var normalizedRec = normalizeSheetRow(rec, r);
+            if (normalizedRec) {
               if (rec.siblingIds) {
                 try {
                   if (typeof rec.siblingIds === 'string' && rec.siblingIds.startsWith('[')) {
-                    rec.siblingIds = JSON.parse(rec.siblingIds);
+                    normalizedRec.siblingIds = JSON.parse(rec.siblingIds);
                   }
                 } catch (e) {}
               }
-              memberRecords.push(rec);
+              memberRecords.push(normalizedRec);
             }
           }
 
-          return memberRecords;
+          if (memberRecords.length > 0) {
+            return memberRecords;
+          }
         } catch (apiErr) {
           console.warn('Authenticated Sheets API read notice:', apiErr && apiErr.message);
         }
@@ -418,17 +490,14 @@
                 var val = cell ? (cell.v !== undefined ? cell.v : cell.f) : '';
                 mRec[cols[ci]] = val !== null && val !== undefined ? String(val).trim() : '';
               }
-              if (mRec.id || mRec.clanMemberNumber || mRec.firstName || mRec.lastName || mRec.email || mRec.phone) {
-                if (!mRec.id) {
-                  var baseId = mRec.clanMemberNumber || (mRec.firstName + (mRec.lastName ? '_' + mRec.lastName : '')) || ('member-' + Date.now() + '-' + i);
-                  mRec.id = 'member-' + String(baseId).toLowerCase().replace(/[^a-z0-9_]/g, '_');
-                }
-                if (mRec.deceased === 'true' || mRec.deceased === 'TRUE') mRec.deceased = true;
-                if (mRec.deceased === 'false' || mRec.deceased === 'FALSE') mRec.deceased = false;
-                publicRecords.push(mRec);
+              var normPublic = normalizeSheetRow(mRec, i);
+              if (normPublic) {
+                publicRecords.push(normPublic);
               }
             }
-            return publicRecords;
+            if (publicRecords.length > 0) {
+              return publicRecords;
+            }
           }
         }
       } catch (publicErr) {
@@ -746,13 +815,37 @@
       return member;
     },
 
-    // 13. Sync Sheet Edits to App Instantly (Zero Duplicates)
+    // Fast deterministic hash calculator for records array to detect genuine changes
+    _computeMembersHash: function(members) {
+      if (!Array.isArray(members) || members.length === 0) return "empty";
+      var sum = 0;
+      var len = members.length;
+      for (var i = 0; i < len; i++) {
+        var m = members[i];
+        if (m) {
+          var str = (m.id || "") + ":" + (m.clanMemberNumber || "") + ":" + (m.firstName || "") + ":" + (m.lastName || "") + ":" + (m.email || "") + ":" + (m.phone || "") + ":" + (m.fatherId || "") + ":" + (m.motherId || "") + ":" + (m.spouseId || "") + ":" + (m.deceased ? "1" : "0");
+          for (var j = 0; j < str.length; j++) {
+            sum = ((sum << 5) - sum + str.charCodeAt(j)) | 0;
+          }
+        }
+      }
+      return len + ":" + sum.toString(36);
+    },
+
+    // 13. Sync Sheet Edits to App Instantly (Zero Duplicates & Change-Triggered Only)
     syncSheetToApp: async function() {
       var sheetId = this.getConnectedSheetId();
       if (!sheetId) return null;
       try {
         var sheetMembers = await this.readAllMembers(sheetId);
         if (Array.isArray(sheetMembers) && sheetMembers.length > 0) {
+          var currentHash = this._computeMembersHash(sheetMembers);
+          if (this._lastSyncedHash && this._lastSyncedHash === currentHash) {
+            // Google Sheets content is identical - no new changes detected.
+            return { success: true, unchanged: true, count: sheetMembers.length };
+          }
+          this._lastSyncedHash = currentHash;
+
           var resp = await fetch("/api/db/sync/records", {
             method: "POST",
             headers: { 
@@ -763,8 +856,11 @@
           });
           if (resp.ok) {
             var data = await resp.json();
-            if (typeof window !== 'undefined') {
-              window.dispatchEvent(new CustomEvent('clan-members-updated', { detail: { count: sheetMembers.length, data } }));
+            // Only notify if rows were genuinely added or updated
+            if (data && (data.added > 0 || data.updated > 0)) {
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('clan-members-updated', { detail: { count: sheetMembers.length, data: data } }));
+              }
             }
             return data;
           }
@@ -777,63 +873,15 @@
 
     startAutoSync: function(intervalMs) {
       if (this._autoSyncTimer) return;
-      var syncInterval = intervalMs || 15000;
-      var lastActivityTime = Date.now();
-      var lastSyncTime = Date.now();
-      var isIdle = false;
-
-      function resetInactivity() {
-        lastActivityTime = Date.now();
-        if (isIdle) {
-          isIdle = false;
-          if (GoogleSheetsDB.getConnectedSheetId()) {
-            GoogleSheetsDB.syncSheetToApp();
-            lastSyncTime = Date.now();
-          }
-        }
-      }
-
-      if (typeof window !== 'undefined') {
-        ['mousemove', 'keydown', 'touchstart', 'click', 'scroll'].forEach(function(evt) {
-          window.addEventListener(evt, resetInactivity, { passive: true });
-        });
-      }
-
+      var syncInterval = intervalMs || 300000; // 5 minutes default
+      var self = this;
       this._autoSyncTimer = setInterval(function() {
-        // Check for inactivity (10s threshold)
-        if (Date.now() - lastActivityTime > 10000) {
-          isIdle = true;
-          return;
+        if (self.getConnectedSheetId()) {
+          self.syncSheetToApp();
         }
-
-        isIdle = false;
-
-        // Trigger sync if interval passed
-        if (Date.now() - lastSyncTime >= syncInterval) {
-          if (GoogleSheetsDB.getConnectedSheetId()) {
-            GoogleSheetsDB.syncSheetToApp();
-            lastSyncTime = Date.now();
-          }
-        }
-      }, 1000); // Check every 1 second
-
-      if (typeof window !== 'undefined' && typeof document !== 'undefined') {
-        document.addEventListener('visibilitychange', function() {
-          if (document.visibilityState === 'visible' && GoogleSheetsDB.getConnectedSheetId()) {
-            resetInactivity();
-          }
-        });
-      }
+      }, syncInterval);
     }
   };
 
   global.GoogleSheetsDB = GoogleSheetsDB;
-  if (typeof window !== 'undefined') {
-    setTimeout(function() {
-      if (GoogleSheetsDB.getConnectedSheetId()) {
-        GoogleSheetsDB.syncSheetToApp();
-        GoogleSheetsDB.startAutoSync(10000);
-      }
-    }, 1500);
-  }
 })(typeof window !== 'undefined' ? window : this);

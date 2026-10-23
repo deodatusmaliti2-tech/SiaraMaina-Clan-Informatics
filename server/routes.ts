@@ -17,6 +17,7 @@ import {
   requireEditorOrAdmin,
 } from "./auth";
 import { metricsEngine } from "./metrics";
+import { serverSyncSheetToApp } from "./sheets";
 
 export const apiRouter = express.Router();
 
@@ -370,6 +371,9 @@ apiRouter.post("/members", requireEditorOrAdmin, async (req: Request, res: Respo
 
     const { member, isDuplicateRetry } = await dbEngine.addMember(req.body, user.email, submissionId);
 
+    // Forward newly added member immediately to Google Sheets
+    syncMemberToGoogleSheets(member);
+
     const allActive = await dbEngine.getMembers(false);
 
     syncManager.broadcast("doc_change", {
@@ -492,23 +496,25 @@ apiRouter.post("/db/sync/records", async (req: Request, res: Response, next: Nex
 
     const allActive = result.members || (await dbEngine.getMembers(false));
 
-    // Broadcast live to all open browsers so remote clients get instant live update!
-    syncManager.broadcast("doc_change", {
-      action: "SET",
-      collection: "members",
-      records: allActive,
-      count: allActive.length,
-      author: authorEmail,
-      timestamp: new Date().toISOString(),
-    });
+    // Broadcast live to open browsers ONLY if records were actually added or updated
+    if (result.added > 0 || result.updated > 0) {
+      syncManager.broadcast("doc_change", {
+        action: "SET",
+        collection: "members",
+        records: allActive,
+        count: allActive.length,
+        author: authorEmail,
+        timestamp: new Date().toISOString(),
+      });
 
-    syncManager.broadcast("sync_pulse", {
-      action: "MEMBERS_IMPORTED",
-      count: allActive.length,
-      added: result.added,
-      updated: result.updated,
-      timestamp: new Date().toISOString(),
-    });
+      syncManager.broadcast("sync_pulse", {
+        action: "MEMBERS_IMPORTED",
+        count: allActive.length,
+        added: result.added,
+        updated: result.updated,
+        timestamp: new Date().toISOString(),
+      });
+    }
 
     res.json({
       success: true,
@@ -538,6 +544,9 @@ apiRouter.put("/members", requireEditorOrAdmin, async (req: Request, res: Respon
 
     const expectedVersion = typeof body.version === "number" ? body.version : undefined;
     const updatedMember = await dbEngine.updateMember(id, body, user.email, expectedVersion);
+
+    // Forward updated member immediately to Google Sheets
+    syncMemberToGoogleSheets(updatedMember);
 
     const allActive = await dbEngine.getMembers(false);
 
@@ -611,28 +620,9 @@ apiRouter.delete(["/members/:id", "/members"], requireEditorOrAdmin, async (req:
     }
 
     // Forward deletion to connected Google Sheet if configured
-    try {
-      if (fs.existsSync(spreadsheetConfigFile)) {
-        const sheetCfg = JSON.parse(fs.readFileSync(spreadsheetConfigFile, "utf-8"));
-        const sheetTargetUrl = sheetCfg.webAppUrl || sheetCfg.url;
-        if (sheetTargetUrl) {
-          fetch(normalizeTargetUrl(sheetTargetUrl), {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              action: "delete",
-              id,
-              clanMemberNumber: deletedRecord?.clanMemberNumber || "",
-              email: deletedRecord?.email || "",
-              firstName: deletedRecord?.firstName || "",
-              lastName: deletedRecord?.lastName || "",
-              ids: [id, deletedRecord?.clanMemberNumber, deletedRecord?.email].filter(Boolean)
-            }),
-            redirect: "follow"
-          }).catch(e => console.warn("[GoogleSheets forward delete notice]:", e.message));
-        }
-      }
-    } catch(gsErr) {}
+    if (deletedRecord || memberToPurge) {
+      syncDeletionToGoogleSheets([deletedRecord || memberToPurge]);
+    }
 
     const allActive = await dbEngine.getMembers(false);
 
@@ -695,7 +685,17 @@ apiRouter.post("/members/batch-delete", requireEditorOrAdmin, async (req: Reques
     }
 
     const isPermanent = req.body?.permanent === true;
+    const allMembersBefore = await dbEngine.getMembers(true);
+    const targetMembers: any[] = [];
+
     for (const id of ids) {
+      const found = allMembersBefore.find(m => m.id === id || m.recordId === id || m.clanMemberNumber === id);
+      if (found) {
+        targetMembers.push(found);
+      } else {
+        targetMembers.push({ id });
+      }
+
       try {
         if (isPermanent) {
           await dbEngine.permanentDeleteMember(id, user.email);
@@ -708,20 +708,7 @@ apiRouter.post("/members/batch-delete", requireEditorOrAdmin, async (req: Reques
     }
 
     // Forward batch deletion to connected Google Sheet if configured
-    try {
-      if (fs.existsSync(spreadsheetConfigFile)) {
-        const sheetCfg = JSON.parse(fs.readFileSync(spreadsheetConfigFile, "utf-8"));
-        const sheetTargetUrl = sheetCfg.webAppUrl || sheetCfg.url;
-        if (sheetTargetUrl) {
-          fetch(normalizeTargetUrl(sheetTargetUrl), {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "delete", ids, count: ids.length }),
-            redirect: "follow"
-          }).catch(e => console.warn("[GoogleSheets forward batch delete notice]:", e.message));
-        }
-      }
-    } catch(gsErr) {}
+    syncDeletionToGoogleSheets(targetMembers);
 
     const allActive = await dbEngine.getMembers(false);
 
@@ -800,11 +787,19 @@ apiRouter.post("/recycle-bin/:id/restore", requireEditorOrAdmin, async (req: Req
 apiRouter.delete("/recycle-bin/:id/permanent", requireEditorOrAdmin, async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
-    await dbEngine.permanentDeleteMember(req.params.id, user.email);
+    const targetId = req.params.id;
+    const allMembers = await dbEngine.getMembers(true);
+    const memberToPurge = allMembers.find(m => m.id === targetId || m.recordId === targetId) || { id: targetId };
+
+    await dbEngine.permanentDeleteMember(targetId, user.email);
+
+    if (memberToPurge) {
+      syncDeletionToGoogleSheets([memberToPurge]);
+    }
 
     syncManager.broadcast("sync_pulse", {
       action: "PERMANENT_DELETION",
-      id: req.params.id,
+      id: targetId,
       author: user.email,
       timestamp: new Date().toISOString(),
     });
@@ -812,7 +807,7 @@ apiRouter.delete("/recycle-bin/:id/permanent", requireEditorOrAdmin, async (req:
     res.json({
       success: true,
       message: "Record permanently purged from Cloud Firestore.",
-      id: req.params.id,
+      id: targetId,
     });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
@@ -1003,6 +998,119 @@ const normalizeTargetUrl = (url: string): string => {
   }
   return trimmed;
 };
+
+async function syncDeletionToGoogleSheets(deletedMembers: any[]) {
+  if (!Array.isArray(deletedMembers) || deletedMembers.length === 0) return;
+  try {
+    if (!fs.existsSync(spreadsheetConfigFile)) return;
+    const sheetCfg = JSON.parse(fs.readFileSync(spreadsheetConfigFile, "utf-8"));
+    const sheetTargetUrl = sheetCfg.webAppUrl || sheetCfg.url || sheetCfg.spreadsheetId;
+    if (!sheetTargetUrl) return;
+
+    const targetUrl = normalizeTargetUrl(sheetTargetUrl);
+
+    for (const record of deletedMembers) {
+      if (!record) continue;
+      const memberId = String(record.id || record.recordId || "").trim();
+      const recordId = String(record.recordId || record.id || "").trim();
+      const cnum = String(record.clanMemberNumber || record.clan_member_number || record["Clan Member Number"] || "").trim();
+      const email = String(record.email || record["Email Address"] || "").trim();
+      const firstName = String(record.firstName || record.first_name || record["First Name"] || "").trim();
+      const lastName = String(record.lastName || record.last_name || record["Last Name"] || "").trim();
+      const fullName = `${firstName} ${lastName}`.trim();
+      const nameKey = (firstName && lastName) ? `${firstName.toLowerCase()}_${lastName.toLowerCase()}` : "";
+
+      const allIds = [
+        memberId,
+        recordId,
+        cnum,
+        email,
+        fullName,
+        nameKey
+      ].filter(Boolean);
+
+      const payload = {
+        action: "delete",
+        id: memberId || recordId || cnum || email || fullName,
+        recordId: recordId || memberId,
+        clanMemberNumber: cnum,
+        email: email,
+        firstName: firstName,
+        lastName: lastName,
+        name: fullName,
+        ids: allIds,
+        count: allIds.length
+      };
+
+      const idsParam = allIds.length > 0 ? `&ids=${encodeURIComponent(allIds.join(","))}` : "";
+      const deleteQueryParams = `?action=delete&id=${encodeURIComponent(memberId || recordId || "")}&clanMemberNumber=${encodeURIComponent(cnum)}&email=${encodeURIComponent(email)}${idsParam}`;
+      const postUrlWithParams = targetUrl.includes("?") ? `${targetUrl}&${deleteQueryParams.slice(1)}` : `${targetUrl}${deleteQueryParams}`;
+
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10000);
+
+        const resp = await fetch(postUrlWithParams, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+          redirect: "follow",
+          signal: controller.signal
+        });
+        clearTimeout(timeout);
+        const txt = await resp.text();
+        console.log(`[GoogleSheets Forward Delete] Response for member ${memberId || cnum || email}:`, txt);
+      } catch (postErr: any) {
+        try {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 10000);
+          const getResp = await fetch(postUrlWithParams, {
+            method: "GET",
+            redirect: "follow",
+            signal: controller.signal
+          });
+          clearTimeout(timeout);
+          console.log(`[GoogleSheets Forward Delete GET Fallback] Response for member ${memberId}:`, await getResp.text());
+        } catch (getErr: any) {
+          console.warn(`[GoogleSheets Forward Delete GET Fallback Notice]:`, getErr.message);
+        }
+      }
+    }
+  } catch (err: any) {
+    console.warn("[syncDeletionToGoogleSheets Notice]:", err.message);
+  }
+}
+
+async function syncMemberToGoogleSheets(members: any | any[]) {
+  const memberList = Array.isArray(members) ? members : [members];
+  if (memberList.length === 0) return;
+  try {
+    if (!fs.existsSync(spreadsheetConfigFile)) return;
+    const sheetCfg = JSON.parse(fs.readFileSync(spreadsheetConfigFile, "utf-8"));
+    const sheetTargetUrl = sheetCfg.webAppUrl || sheetCfg.url || sheetCfg.spreadsheetId;
+    if (!sheetTargetUrl) return;
+
+    const targetUrl = normalizeTargetUrl(sheetTargetUrl);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+
+    const payload = memberList.length === 1 ? memberList[0] : memberList;
+
+    const resp = await fetch(targetUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      redirect: "follow",
+      signal: controller.signal
+    });
+    clearTimeout(timeout);
+    const txt = await resp.text();
+    console.log(`[GoogleSheets Forward Push] Sync response:`, txt);
+  } catch (err: any) {
+    console.warn("[syncMemberToGoogleSheets Notice]:", err.message);
+  }
+}
+
 
 // Stateful in-memory mock Google Sheet store for testing & automated verification
 let mockSheetDatabase: any[] = [
@@ -1211,6 +1319,11 @@ apiRouter.post("/sheets/delete", async (req: Request, res: Response) => {
     const act = action || "delete";
     const targetUrl = normalizeTargetUrl(webAppUrl);
 
+    const allIds = ids && Array.isArray(ids) ? ids : [id, clanMemberNumber, email].filter(Boolean);
+    const idsParam = allIds.length > 0 ? `&ids=${encodeURIComponent(allIds.join(","))}` : "";
+    const deleteQueryParams = `?action=${encodeURIComponent(act)}&id=${encodeURIComponent(id || "")}&clanMemberNumber=${encodeURIComponent(clanMemberNumber || "")}&email=${encodeURIComponent(email || "")}${idsParam}`;
+    const urlWithParams = targetUrl.includes("?") ? `${targetUrl}&${deleteQueryParams.slice(1)}` : `${targetUrl}${deleteQueryParams}`;
+
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000);
 
@@ -1218,7 +1331,6 @@ apiRouter.post("/sheets/delete", async (req: Request, res: Response) => {
     let parsed: any = null;
 
     try {
-      const allIds = ids && Array.isArray(ids) ? ids : [id, clanMemberNumber, email].filter(Boolean);
       const payload = {
         action: act,
         id: id || clanMemberNumber || email || "",
@@ -1230,7 +1342,7 @@ apiRouter.post("/sheets/delete", async (req: Request, res: Response) => {
         count: allIds.length
       };
 
-      const resp = await fetch(targetUrl, {
+      const resp = await fetch(urlWithParams, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -1240,10 +1352,7 @@ apiRouter.post("/sheets/delete", async (req: Request, res: Response) => {
       text = await resp.text();
       try { parsed = JSON.parse(text); } catch (e) {}
     } catch (postErr: any) {
-      const allIds = ids && Array.isArray(ids) ? ids : [id, clanMemberNumber, email].filter(Boolean);
-      const idsParam = allIds.length > 0 ? `&ids=${encodeURIComponent(allIds.join(","))}` : "";
-      const deleteUrl = `${targetUrl}?action=${encodeURIComponent(act)}&id=${encodeURIComponent(id || "")}&clanMemberNumber=${encodeURIComponent(clanMemberNumber || "")}&email=${encodeURIComponent(email || "")}${idsParam}`;
-      const getResp = await fetch(deleteUrl, {
+      const getResp = await fetch(urlWithParams, {
         method: "GET",
         redirect: "follow",
         signal: controller.signal
@@ -1312,6 +1421,23 @@ apiRouter.all("/sheets/webhook", async (req: Request, res: Response) => {
     res.json({ success: true, message: "Webhook received" });
   } catch (err: any) {
     console.error("[Sheets Webhook] Error:", err.message || err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Explicit endpoint to trigger immediate background sheet sync
+apiRouter.post(["/sheets/sync", "/sheets/force-sync"], async (req: Request, res: Response) => {
+  try {
+    await serverSyncSheetToApp();
+    const records = await dbEngine.getMembers(false);
+    res.json({
+      success: true,
+      count: records.length,
+      members: records,
+      records,
+      message: "Server background sheet sync triggered and executed successfully."
+    });
+  } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
   }
 });

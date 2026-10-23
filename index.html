@@ -91,12 +91,22 @@
     function addPersistentDeletedId(id, email, clanNumber, firstName, lastName) {
       try {
         var set = getPersistentDeletedIds();
-        if (id) set.add(String(id).trim());
+        if (id) {
+          var rawId = String(id).trim();
+          var cleanId = rawId.replace(/[[\]]/g, "").trim();
+          if (rawId) set.add(rawId);
+          if (cleanId) set.add(cleanId);
+        }
         if (email) set.add(String(email).toLowerCase().trim());
-        if (clanNumber) set.add(String(clanNumber).toUpperCase().trim());
+        if (clanNumber) {
+          var rawClan = String(clanNumber).toUpperCase().trim();
+          var cleanClan = rawClan.replace(/[[\]]/g, "").trim();
+          if (rawClan) set.add(rawClan);
+          if (cleanClan) set.add(cleanClan);
+        }
         var fn = String(firstName || "").trim().toLowerCase();
         var ln = String(lastName || "").trim().toLowerCase();
-        if (fn) set.add(ln ? (fn + "_" + ln) : (fn + "_single"));
+        if (fn && ln) set.add(fn + "_" + ln);
         localStorage.setItem("siara_recently_deleted_ids", JSON.stringify(Array.from(set)));
         window._recentlyDeletedMemberIds = set;
       } catch(e) {}
@@ -105,12 +115,22 @@
     function removePersistentDeletedId(id, email, clanNumber, firstName, lastName) {
       try {
         var set = getPersistentDeletedIds();
-        if (id) set.delete(String(id).trim());
+        if (id) {
+          var rawId = String(id).trim();
+          var cleanId = rawId.replace(/[[\]]/g, "").trim();
+          if (rawId) set.delete(rawId);
+          if (cleanId) set.delete(cleanId);
+        }
         if (email) set.delete(String(email).toLowerCase().trim());
-        if (clanNumber) set.delete(String(clanNumber).toUpperCase().trim());
+        if (clanNumber) {
+          var rawClan = String(clanNumber).toUpperCase().trim();
+          var cleanClan = rawClan.replace(/[[\]]/g, "").trim();
+          if (rawClan) set.delete(rawClan);
+          if (cleanClan) set.delete(cleanClan);
+        }
         var fn = String(firstName || "").trim().toLowerCase();
         var ln = String(lastName || "").trim().toLowerCase();
-        if (fn) set.delete(ln ? (fn + "_" + ln) : (fn + "_single"));
+        if (fn && ln) set.delete(fn + "_" + ln);
         localStorage.setItem("siara_recently_deleted_ids", JSON.stringify(Array.from(set)));
         window._recentlyDeletedMemberIds = set;
       } catch(e) {}
@@ -118,12 +138,22 @@
 
     function isMemberDeleted(id, email, clanNumber, firstName, lastName) {
       var set = getPersistentDeletedIds();
-      if (id && set.has(String(id).trim())) return true;
+      var rawId = id ? String(id).trim() : "";
+      var cleanId = rawId ? rawId.replace(/[[\]]/g, "").trim() : "";
+      if (rawId && set.has(rawId)) return true;
+      if (cleanId && set.has(cleanId)) return true;
+
+      var rawClan = clanNumber ? String(clanNumber).toUpperCase().trim() : "";
+      var cleanClan = rawClan ? rawClan.replace(/[[\]]/g, "").trim() : "";
+      if (rawClan && set.has(rawClan)) return true;
+      if (cleanClan && set.has(cleanClan)) return true;
+
       if (email && set.has(String(email).toLowerCase().trim())) return true;
-      if (clanNumber && set.has(String(clanNumber).toUpperCase().trim())) return true;
+
       var fn = String(firstName || "").trim().toLowerCase();
       var ln = String(lastName || "").trim().toLowerCase();
       if (fn && set.has(ln ? (fn + "_" + ln) : (fn + "_single"))) return true;
+
       return false;
     }
 
@@ -206,6 +236,15 @@
   </script>
   <!-- 10 Distinct Family Tree Styles (4 Interactive 3D + 6 Classic 2D) Engine -->
   <script src="/family-tree-styles.js"></script>
+  <script>
+    window._familyTreeStyles = {
+      rounded: window.renderClassicalRoundedTree,
+      square: window.renderClassicalSquareTree,
+      compact: window.renderClassicalCompactTree,
+      ltr: window.renderClassicalLtrTree,
+      radial: window.renderClassicalRadialTree
+    };
+  </script>
   <!-- Google Sheets Database Engine -->
   <script src="/googleSheetsService.js"></script>
   <!-- Import map for standard ESM imports in browser -->
@@ -240,7 +279,7 @@
         messagingSenderId: "900054800353"
       };
 
-      const customDbId = "ai-studio-remixsiaramainac-af949323-b6c8-4f5f-8a13-50c8e01c0fbf";
+      const customDbId = (typeof firebaseConfig !== "undefined" && firebaseConfig.firestoreDatabaseId) ? firebaseConfig.firestoreDatabaseId : "ai-studio-remixremixsiaram-55d7db63-6a1e-4fd7-912e-12d5df072a9d";
       const apps = getApps();
       const modApp = apps.length > 0 ? apps[0] : initMod(firebaseConfig, "SiaraMainaApp");
       const modDb = getFirestore(modApp, customDbId);
@@ -256,6 +295,11 @@
           }
         } catch(e) {}
         console.warn("⚠️ Operating in Server/Local database mode (Firestore daily free quota limit reached for today).");
+      } else {
+        window._firestoreQuotaExhausted = false;
+        try {
+          localStorage.removeItem("siara_firestore_quota_exhausted_date");
+        } catch(e) {}
       }
 
       window._firebaseModular = {
@@ -299,7 +343,7 @@
           } catch(e) {}
           try {
             if (typeof firebase !== "undefined" && firebase.firestore) {
-              var compatDb = firebase.app().firestore("ai-studio-remixsiaramainac-af949323-b6c8-4f5f-8a13-50c8e01c0fbf");
+              var compatDb = firebase.app().firestore(customDbId);
               if (compatDb && compatDb.disableNetwork) compatDb.disableNetwork().catch(function() {});
             }
           } catch(e) {}
@@ -1741,30 +1785,105 @@
     
     .d3-tree-search-panel {
       position: absolute;
-      top: 16px;
-      left: 16px;
-      background: rgba(255,255,255,0.94);
-      backdrop-filter: blur(8px);
+      top: 14px;
+      left: 14px;
+      background: rgba(255,255,255,0.96);
+      backdrop-filter: blur(10px);
       padding: 8px 12px;
       border-radius: 10px;
-      border: 1px solid var(--line);
-      box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+      border: 1.5px solid var(--line);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.12);
       display: flex;
       align-items: center;
       gap: 8px;
-      z-index: 20;
-      max-width: calc(100% - 32px);
+      z-index: 50;
+      max-width: calc(100% - 28px);
+      flex-wrap: wrap;
     }
     .d3-tree-search-input {
       padding: 6px 10px;
       border: 1px solid var(--line);
       border-radius: 6px;
-      font-size: 0.76rem;
-      width: 220px;
+      font-size: 0.74rem;
+      width: 170px;
       outline: none;
+      background: #ffffff;
+      color: #1e293b;
+      transition: all 0.2s ease;
     }
     .d3-tree-search-input:focus {
       border-color: var(--green);
+      box-shadow: 0 0 0 2px rgba(16,185,129,0.15);
+      width: 195px;
+    }
+    .custom-root-search-box {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .custom-root-input {
+      padding: 6px 10px;
+      border: 1.5px solid #059669;
+      border-radius: 6px;
+      font-size: 0.74rem;
+      font-weight: 700;
+      width: 200px;
+      outline: none;
+      background: #f0fdf4;
+      color: #064e3b;
+      transition: all 0.2s ease;
+    }
+    .custom-root-input:focus {
+      border-color: #047857;
+      background: #ffffff;
+      box-shadow: 0 0 0 3px rgba(16,185,129,0.2);
+      width: 230px;
+    }
+    .custom-root-generate-btn {
+      padding: 6px 10px;
+      font-size: 0.72rem;
+      font-weight: 800;
+      background: #103d2b;
+      color: #ffffff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+      transition: background 0.15s ease;
+    }
+    .custom-root-generate-btn:hover {
+      background: #047857;
+    }
+    .custom-root-suggestions-menu {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      width: 300px;
+      max-height: 250px;
+      overflow-y: auto;
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.18);
+      z-index: 1000;
+    }
+    .custom-root-suggestion-item {
+      padding: 8px 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      border-bottom: 1px solid #f1f5f9;
+      font-size: 0.73rem;
+      transition: background 0.15s ease;
+    }
+    .custom-root-suggestion-item:hover {
+      background: #ecfdf5;
+      color: #047857;
     }
 
     /* D3 Treemap Component Styling */
@@ -3861,17 +3980,48 @@
     <div class="modal-box" style="max-width:600px; width:95vw;">
       <div class="modal-head" style="margin-bottom:12px;">
         <div style="display:flex; align-items:center; gap:10px;">
-          <span style="font-size:1.4rem;">📥</span>
+          <span style="font-size:1.4rem;">📈</span>
           <div>
-            <h2 style="margin:0; font-size:1.15rem; color:var(--forest);">Import &amp; Sync from Google Sheet</h2>
-            <span style="font-size:0.75rem; color:var(--muted);">Directly sync edited member data from your Google Sheet without duplicating records.</span>
+            <h2 style="margin:0; font-size:1.15rem; color:var(--forest);">Google Sheets Data Portal &amp; Sync Control</h2>
+            <span style="font-size:0.75rem; color:var(--muted);">Manage live spreadsheet editing, automatic background synchronization, and data import/export.</span>
           </div>
         </div>
         <button class="close" type="button" onclick="closeModal('googleSheetsImportModal')">×</button>
       </div>
+
+      <!-- Auto-Sync Control Card with Pause/Resume Button -->
+      <div style="background:#f8fafc; border:1.5px solid #cbd5e1; border-radius:10px; padding:12px 14px; margin-bottom:12px; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+        <div style="flex:1; min-width:220px;">
+          <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+            <span style="font-weight:900; font-size:0.88rem; color:var(--forest);">🔄 Auto-Sync Controller</span>
+            <span id="autoSyncStatusBadge" style="display:inline-flex; align-items:center; padding:3px 9px; border-radius:99px; font-size:0.72rem; font-weight:800; border:1px solid #a7f3d0; background:#ecfdf5; color:#065f46;">
+              🟢 Auto-Sync Active (45s)
+            </span>
+          </div>
+          <p id="autoSyncStatusDesc" style="margin:0; font-size:0.75rem; color:#475569; line-height:1.4;">
+            Background synchronization periodically checks Google Sheets for updates smoothly without interrupting your reading or viewing.
+          </p>
+        </div>
+        <button id="toggleAutoSyncBtn" type="button" onclick="toggleSheetsAutoSync()" class="button" style="background:#d97706; color:#ffffff; font-weight:800; font-size:0.78rem; padding:8px 14px; border-radius:7px; border:1.5px solid #b45309; cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center; gap:6px;">
+          ⏸️ Pause Auto-Sync
+        </button>
+      </div>
+
+      <div style="background:#ecfdf5; border:1.5px solid #10b981; border-radius:8px; padding:12px; margin-bottom:14px; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+        <div>
+          <strong style="color:#065f46; font-size:0.88rem; display:block;">📊 Connected Google Sheet</strong>
+          <span style="font-size:0.75rem; color:#047857;">Open the live clan spreadsheet in a new tab to edit, add, or view rows directly.</span>
+        </div>
+        <div style="display:flex; gap:6px; align-items:center;">
+          <button type="button" onclick="openLinkGoogleSheetConfigModal()" class="button secondary" style="padding:6px 10px; font-weight:700; font-size:0.75rem; border-radius:6px; border:1px solid #a7f3d0; background:#ffffff; color:#047857; cursor:pointer;">⚙️ Link Sheet</button>
+          <button id="openConnectedSheetModalBtn" type="button" onclick="openDirectGoogleSheet()" class="button" style="background:#059669; color:#fff; padding:8px 14px; font-weight:800; border:none; border-radius:6px; cursor:pointer; font-size:0.8rem; white-space:nowrap; display:inline-flex; align-items:center; gap:5px;">
+            📊 Open Sheet ↗️
+          </button>
+        </div>
+      </div>
       <div style="font-size:0.85rem; color:#334155; line-height:1.5; margin-bottom:14px;">
         <p style="margin:0 0 8px;">Your Google Sheet Web / CSV export URL or Apps Script Web App URL:</p>
-        <input id="googleSheetUrlInput" type="url" placeholder="https://docs.google.com/spreadsheets/d/.../export?format=csv or https://script.google.com/macros/s/.../exec" style="width:100%; padding:10px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:0.82rem; font-family:monospace;" oninput="localStorage.setItem('siara_google_sheet_url', this.value.trim());">
+        <input id="googleSheetUrlInput" type="url" placeholder="https://docs.google.com/spreadsheets/d/.../edit or https://script.google.com/macros/s/.../exec" style="width:100%; padding:10px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:0.82rem; font-family:monospace;" oninput="var val = this.value.trim(); localStorage.setItem('siara_google_sheet_url', val); if (val.includes('docs.google.com/spreadsheets/d/')) { localStorage.setItem('siara_google_sheet_direct_url', val); }">
         <label style="display:flex; align-items:center; gap:8px; margin-top:8px; font-size:0.75rem; color:#475569; cursor:pointer;">
           <input type="checkbox" id="syncDeletionsFromSheetCheckbox" checked>
           <span><strong>Two-way Delete Sync:</strong> Automatically remove records in app if deleted from Google Sheet</span>
@@ -3895,6 +4045,31 @@
           <button id="googleSheetCancelBtn" type="button" onclick="closeModal('googleSheetsImportModal')" class="button secondary" style="padding:8px 16px; font-weight:700;">Cancel</button>
           <button id="googleSheetSyncBtn" type="button" onclick="syncFromGoogleSheetUrl()" class="button primary" style="background:#047857; color:#fff; padding:8px 16px; font-weight:800; border:none; border-radius:6px; cursor:pointer;">🔄 Sync &amp; Import from Sheet</button>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Link Direct Google Sheet Modal -->
+  <section id="linkGoogleSheetConfigModal" class="modal">
+    <div class="modal-box" style="max-width:540px; width:95vw; padding:24px;">
+      <div class="modal-head" style="margin-bottom:12px;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span style="font-size:1.5rem;">🔗</span>
+          <div>
+            <h2 style="margin:0; font-size:1.15rem; color:var(--forest);">Link Your Google Spreadsheet</h2>
+            <span style="font-size:0.75rem; color:var(--muted);">Enter or paste the Google Sheet URL containing the data for this app.</span>
+          </div>
+        </div>
+        <button class="close" type="button" onclick="closeModal('linkGoogleSheetConfigModal')">×</button>
+      </div>
+      <div style="margin-bottom:16px;">
+        <label style="display:block; font-size:0.82rem; font-weight:700; color:#1e293b; margin-bottom:6px;">Google Sheet Web URL:</label>
+        <input id="directSheetUrlModalInput" type="url" placeholder="https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID/edit" style="width:100%; padding:10px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-size:0.85rem; font-family:monospace;" onkeydown="if(event.key==='Enter') saveAndOpenLinkedSheetFromModal();">
+        <p style="margin:6px 0 0; font-size:0.75rem; color:#64748b;">Copy and paste the URL from your browser address bar when viewing your Google Sheet.</p>
+      </div>
+      <div style="display:flex; gap:10px; justify-content:flex-end;">
+        <button type="button" onclick="closeModal('linkGoogleSheetConfigModal')" class="button secondary" style="padding:8px 16px; font-weight:700;">Cancel</button>
+        <button type="button" onclick="saveAndOpenLinkedSheetFromModal()" class="button primary" style="background:#059669; color:#fff; padding:8px 18px; font-weight:800; border:none; border-radius:6px; cursor:pointer;">🔗 Save &amp; Open Sheet ↗️</button>
       </div>
     </div>
   </section>
@@ -4216,16 +4391,97 @@ function doGet(e) {
 
 
   <script>
-    window.openDataSheetsPortal = function() {
+    window.openDirectGoogleSheet = function() {
+      var savedDirect = localStorage.getItem("siara_google_sheet_direct_url") || "";
       var savedUrl = localStorage.getItem("siara_google_sheet_url") || "";
-      // If URL exists and looks like a sheet edit/view URL, open it; otherwise open import modal
-      if (savedUrl && savedUrl.includes("docs.google.com/spreadsheets/")) {
-        var editUrl = savedUrl.replace(/\/export\?format=csv.*$/, "/edit").replace(/\/export.*$/, "/edit");
-        window.open(editUrl, "_blank");
-        showToast("📈 Opening Google Sheets Data Portal. Fill in or edit your data there, then use 'Import from Sheets' to sync back!", "success");
+      var webAppUrl = localStorage.getItem("siara_google_webapp_url") || "";
+
+      var spreadsheetId = "";
+      [savedDirect, savedUrl, webAppUrl].forEach(function(u) {
+        if (!spreadsheetId && u && typeof u === "string") {
+          var m = u.match(/\/spreadsheets\/d\/([a-zA-Z0-9_\-]+)/);
+          if (m && m[1]) spreadsheetId = m[1];
+        }
+      });
+
+      if (spreadsheetId) {
+        var targetEditUrl = "https://docs.google.com/spreadsheets/d/" + spreadsheetId + "/edit";
+        localStorage.setItem("siara_google_sheet_direct_url", targetEditUrl);
+        try {
+          var a = document.createElement("a");
+          a.href = targetEditUrl;
+          a.target = "_blank";
+          a.rel = "noopener noreferrer";
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          if (typeof showToast === "function") showToast("📊 Opening linked Google Sheet in a new tab...", "success");
+        } catch(e) {
+          window.location.href = targetEditUrl;
+        }
+        return;
+      }
+
+      // If no docs.google.com/spreadsheets/d/ URL is saved yet, open the in-app Link Google Sheet Modal
+      openLinkGoogleSheetConfigModal();
+    };
+
+    window.openLinkGoogleSheetConfigModal = function() {
+      var modal = document.getElementById("linkGoogleSheetConfigModal");
+      var input = document.getElementById("directSheetUrlModalInput");
+      if (input) {
+        input.value = localStorage.getItem("siara_google_sheet_direct_url") || localStorage.getItem("siara_google_sheet_url") || "";
+      }
+      if (modal) {
+        modal.classList.add("open");
+        modal.style.removeProperty("display");
+        modal.style.setProperty("display", "flex", "important");
       } else {
         openGoogleSheetsImportModal();
-        showToast("Please save your Google Sheet link first.", "info");
+      }
+    };
+
+    window.saveAndOpenLinkedSheetFromModal = function() {
+      var input = document.getElementById("directSheetUrlModalInput");
+      var val = input ? input.value.trim() : "";
+      if (!val) {
+        if (typeof showToast === "function") showToast("Please paste your Google Sheet URL.", "error");
+        return;
+      }
+
+      var match = val.match(/\/spreadsheets\/d\/([a-zA-Z0-9_\-]+)/);
+      if (match && match[1]) {
+        var sheetId = match[1];
+        var targetEditUrl = "https://docs.google.com/spreadsheets/d/" + sheetId + "/edit";
+        localStorage.setItem("siara_google_sheet_direct_url", targetEditUrl);
+        localStorage.setItem("siara_google_sheet_url", targetEditUrl);
+
+        closeModal("linkGoogleSheetConfigModal");
+
+        try {
+          var a = document.createElement("a");
+          a.href = targetEditUrl;
+          a.target = "_blank";
+          a.rel = "noopener noreferrer";
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        } catch(e) {
+          window.location.href = targetEditUrl;
+        }
+
+        if (typeof showToast === "function") showToast("✅ Linked Google Sheet saved and opened!", "success");
+      } else {
+        if (typeof showToast === "function") showToast("⚠️ Invalid format. Paste a link containing docs.google.com/spreadsheets/d/...", "warning");
+      }
+    };
+
+    window.openDataSheetsPortal = function() {
+      if (typeof openGoogleSheetsImportModal === "function") {
+        openGoogleSheetsImportModal();
+      }
+      if (typeof window.updateSheetsAutoSyncUI === "function") {
+        window.updateSheetsAutoSyncUI();
       }
     };
 
@@ -4358,6 +4614,9 @@ function doGet(e) {
         }
         input.value = val;
       }
+      if (typeof window.updateSheetsAutoSyncUI === "function") {
+        window.updateSheetsAutoSyncUI();
+      }
       if (modal) {
         modal.classList.add("open");
         modal.style.removeProperty("display");
@@ -4386,6 +4645,9 @@ function doGet(e) {
           url = sheetUrl;
         }
       }
+      if (!url) {
+        url = "https://script.google.com/macros/s/AKfycbyLlYZ3pw4-5ENtn_wf6tInqNRAPmHCdDmzJx40g2hUPNVyK3XOcleP9_MaGqktg6V2/exec";
+      }
       return url;
     };
 
@@ -4405,11 +4667,14 @@ function doGet(e) {
       copy["Clan Member Number"] = cNum;
 
       var rawId = String(copy.id || copy.recordId || copy["Member ID"] || "").trim();
-      var uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      if (uuidRegex.test(rawId) || rawId.includes("-") || !rawId || rawId.includes("Assigned")) {
-        copy.id = cNum;
-        copy.recordId = cNum;
-        copy["Member ID"] = cNum;
+      if (!rawId || rawId.includes("Assigned")) {
+        copy.id = cNum || ("rec_" + Date.now());
+        copy.recordId = copy.id;
+        copy["Member ID"] = copy.id;
+      } else {
+        copy.id = rawId;
+        copy.recordId = rawId;
+        copy["Member ID"] = rawId;
       }
 
       return copy;
@@ -4567,6 +4832,21 @@ function doGet(e) {
         var ln = normalizedName(r.lastName);
         var mn = normalizedName(r.middleName);
 
+        // Ensure James Siara and Helena Shayo are never spouses
+        var isJames = (rId === "siara" || (fn === "james" && ln === "siara"));
+        var isHelena = (fn === "helena" && (ln === "shayo" || mn.indexOf("elias") !== -1));
+        if (isJames && r.spouseId) {
+          r.spouseId = "";
+        }
+        if (isHelena && r.spouseId) {
+          r.spouseId = "";
+        }
+
+        // Filter out accidental empty draft row "BY"
+        if (fn === "by" && !ln && !clanNum && !emailKey) {
+          return;
+        }
+
         // Strict persistent deletion suppression
         if (r.deleted === true || r.active === false || r.status === "deleted") {
           return;
@@ -4574,7 +4854,12 @@ function doGet(e) {
         if (typeof isMemberDeleted === "function" && isMemberDeleted(rId, emailKey, clanNum, fn, ln)) {
           return;
         }
-        if (window._recentlyDeletedMemberIds && (window._recentlyDeletedMemberIds.has(rId) || (clanNum && window._recentlyDeletedMemberIds.has(clanNum)) || (emailKey && window._recentlyDeletedMemberIds.has(emailKey)))) {
+        if (window._recentlyDeletedMemberIds && (
+          window._recentlyDeletedMemberIds.has(rId) || 
+          (clanNum && window._recentlyDeletedMemberIds.has(clanNum)) || 
+          (emailKey && window._recentlyDeletedMemberIds.has(emailKey)) ||
+          (fn && ln && window._recentlyDeletedMemberIds.has(fn + "_" + ln))
+        )) {
           return;
         }
 
@@ -4590,7 +4875,7 @@ function doGet(e) {
         if (rId && idMap.has(rId)) existing = idMap.get(rId);
         else if (clanNum && clanNumMap.has(clanNum)) existing = clanNumMap.get(clanNum);
         else if (emailKey && emailMap.has(emailKey)) existing = emailMap.get(emailKey);
-        else if (nameKey && nameMap.has(nameKey)) existing = nameMap.get(nameKey);
+        else if (nameKey && fn && ln && nameMap.has(nameKey)) existing = nameMap.get(nameKey);
 
         if (existing) {
           Object.keys(r).forEach(function(k) {
@@ -4614,10 +4899,96 @@ function doGet(e) {
     }
     window.deduplicateClanRecords = deduplicateClanRecords;
 
+    function mergeServerAndLocalRecords(serverList, localList) {
+      var map = new Map();
+      (serverList || []).forEach(function(m) {
+        if (!m) return;
+        var mId = String(m.id || m.recordId || "").trim();
+        if (!mId) return;
+        if (m.deleted === true || m.active === false || m.status === "deleted") return;
+        if (typeof isMemberDeleted === "function" && isMemberDeleted(mId, m.email, m.clanMemberNumber, m.firstName, m.lastName)) return;
+        map.set(mId, m);
+      });
+      (localList || []).forEach(function(m) {
+        if (!m) return;
+        var mId = String(m.id || m.recordId || "").trim();
+        if (!mId) return;
+        if (m.deleted === true || m.active === false || m.status === "deleted") return;
+        if (map.has(mId)) {
+          var sRec = map.get(mId);
+          map.set(mId, Object.assign({}, sRec, m, sRec));
+        } else {
+          map.set(mId, m);
+        }
+      });
+      return deduplicateClanRecords(Array.from(map.values()));
+    }
+    window.mergeServerAndLocalRecords = mergeServerAndLocalRecords;
+
+
+    function normalizeImportedMember(raw, existingList) {
+      if (!raw || typeof raw !== "object") return { member: {} };
+      var copy = Object.assign({}, raw);
+
+      var fn = csvText(copy.firstName || copy.first_name || copy["First Name"] || "").trim();
+      var mn = csvText(copy.middleName || copy.middle_name || copy["Middle Name"] || "").trim();
+      var ln = csvText(copy.lastName || copy.last_name || copy["Last Name"] || "").trim();
+      var full = csvText(copy.fullName || copy["Full Name"] || copy["Member Name"] || "").trim();
+
+      if (!fn && !mn && !ln && full) {
+        var parts = full.split(/\s+/).filter(Boolean);
+        if (parts.length === 1) fn = parts[0];
+        else if (parts.length === 2) { fn = parts[0]; ln = parts[1]; }
+        else if (parts.length >= 3) { fn = parts[0]; mn = parts.slice(1, -1).join(" "); ln = parts[parts.length - 1]; }
+      }
+
+      copy.firstName = fn;
+      copy.middleName = mn;
+      copy.lastName = ln;
+
+      var cNum = csvText(copy.clanMemberNumber || copy.clanMemberNo || copy["Clan Member Number"] || "").trim();
+      copy.clanMemberNumber = cNum;
+
+      var id = csvText(copy.id || copy.recordId || copy["Member ID"] || "").trim();
+      if (!id) {
+        id = cNum ? ("rec-clan-" + cNum) : (fn ? ("rec_" + fn.toLowerCase() + "_" + (ln ? ln.toLowerCase() : "single")) : ("rec_" + Date.now()));
+      }
+      copy.id = id;
+      copy.recordId = id;
+
+      var rawPhoto = csvText(copy.photo || copy.storedPhoto || copy.photoUrl || copy.photoFile || copy["Passport-Style Image"] || copy["Photo"] || copy["Photo URL"] || "").trim();
+
+      if (!rawPhoto && Array.isArray(existingList)) {
+        var match = existingList.find(function(ex) {
+          if (!ex) return false;
+          if (ex.id && ex.id === id) return true;
+          if (cNum && ex.clanMemberNumber && ex.clanMemberNumber.toUpperCase() === cNum.toUpperCase()) return true;
+          if (ex.email && copy.email && ex.email.toLowerCase() === copy.email.toLowerCase()) return true;
+          if (fn && ex.firstName && fn.toLowerCase() === ex.firstName.toLowerCase()) {
+            if (ln && ex.lastName && ln.toLowerCase() === ex.lastName.toLowerCase()) return true;
+          }
+          return false;
+        });
+        if (match) {
+          copy.photo = match.photo || match.storedPhoto || match.photoUrl || "";
+          copy.storedPhoto = match.storedPhoto || match.photo || "";
+          copy.photoUrl = match.photoUrl || match.photo || "";
+          copy.photoFile = match.photoFile || "";
+        }
+      } else {
+        copy.photo = rawPhoto;
+        copy.storedPhoto = rawPhoto;
+        copy.photoUrl = rawPhoto;
+      }
+
+      return { member: copy };
+    }
+    window.normalizeImportedMember = normalizeImportedMember;
 
     function upsertMemberRecord(list, incoming, opts) {
       opts = opts || {};
-      if (!incoming || (!incoming.firstName && !incoming.lastName && !incoming.clanMemberNumber && !incoming.email)) {
+      var hasName = Boolean((incoming.firstName && String(incoming.firstName).trim()) || (incoming.middleName && String(incoming.middleName).trim()) || (incoming.lastName && String(incoming.lastName).trim()));
+      if (!incoming || !hasName) {
         return { record: null, isNew: false, isDeleted: false };
       }
       
@@ -4629,13 +5000,18 @@ function doGet(e) {
       var incMn = normalizedName(incoming.middleName);
       var incPhone = csvText(incoming.phone || incoming.mobile || "").trim();
 
+      // Filter out accidental empty draft row "BY"
+      if (incFn === "by" && !incLn && !incClan && !incEmail) {
+        return { record: null, isNew: false, isDeleted: false };
+      }
+
       if (opts.forceImport || incoming.forceImport) {
         if (typeof removePersistentDeletedId === "function") {
           removePersistentDeletedId(incId, incEmail, incClan, incFn, incLn);
         }
         incoming.deleted = false;
         incoming.active = true;
-      } else if (incoming.deleted === true || incoming.active === false || incoming.status === "deleted" || (typeof isMemberDeleted === "function" && isMemberDeleted(incId, incEmail, incClan, incFn, incLn)) || (window._recentlyDeletedMemberIds && (window._recentlyDeletedMemberIds.has(incId) || (incClan && window._recentlyDeletedMemberIds.has(incClan))))) {
+      } else if (incoming.deleted === true || incoming.active === false || incoming.status === "deleted" || (typeof isMemberDeleted === "function" && isMemberDeleted(incId, incEmail, incClan, incFn, incLn)) || (window._recentlyDeletedMemberIds && (window._recentlyDeletedMemberIds.has(incId) || (incClan && window._recentlyDeletedMemberIds.has(incClan)) || (incFn && incLn && window._recentlyDeletedMemberIds.has(incFn + "_" + incLn))))) {
         return { record: null, isNew: false, isDeleted: true };
       }
 
@@ -4667,17 +5043,20 @@ function doGet(e) {
           foundIdx = i;
           break;
         }
-        // 4. Exact Full Name or Single Name match
-        if (incFn && rFn && incFn === rFn) {
-          if ((incLn && rLn && incLn === rLn) || (!incLn && !rLn)) {
-            if (!incMn || !rMn || incMn === rMn) {
-              foundIdx = i;
-              break;
+        // 4. Name match: ONLY IF at least one record lacks an explicit ID, or IDs match!
+        // Never merge distinct individuals who have different explicit IDs!
+        if (!incId || !rId || incId === rId) {
+          if (incFn && rFn && incFn === rFn) {
+            if ((incLn && rLn && incLn === rLn) || (!incLn && !rLn)) {
+              if (!incMn || !rMn || incMn === rMn) {
+                foundIdx = i;
+                break;
+              }
             }
           }
         }
-        // 5. First Name + Phone match
-        if (incFn && rFn && incPhone && rPhone && incFn === rFn && incPhone === rPhone) {
+        // 5. First Name + Phone match (only if IDs match or absent)
+        if ((!incId || !rId || incId === rId) && incFn && rFn && incPhone && rPhone && incFn === rFn && incPhone === rPhone) {
           foundIdx = i;
           break;
         }
@@ -4686,6 +5065,17 @@ function doGet(e) {
       if (foundIdx > -1) {
         var existing = list[foundIdx];
         var isUpdated = false;
+
+        var incHasPhoto = Boolean((incoming.photo && incoming.photo.trim()) || (incoming.storedPhoto && incoming.storedPhoto.trim()) || (incoming.photoUrl && incoming.photoUrl.trim()) || (incoming.photoFile && incoming.photoFile.trim()));
+        var exHasPhoto = Boolean((existing.photo && existing.photo.trim()) || (existing.storedPhoto && existing.storedPhoto.trim()) || (existing.photoUrl && existing.photoUrl.trim()) || (existing.photoFile && existing.photoFile.trim()));
+
+        if (!incHasPhoto && exHasPhoto) {
+          incoming.photo = existing.photo || existing.storedPhoto || existing.photoUrl || "";
+          incoming.storedPhoto = existing.storedPhoto || existing.photo || "";
+          incoming.photoUrl = existing.photoUrl || existing.photo || "";
+          incoming.photoFile = existing.photoFile || "";
+        }
+
         Object.keys(incoming).forEach(function(k) {
           if (k !== "id" && k !== "recordId" && incoming[k] !== undefined && incoming[k] !== "" && incoming[k] !== null) {
             if (existing[k] !== incoming[k]) {
@@ -4834,6 +5224,21 @@ function doGet(e) {
           throw new Error("The fetched spreadsheet content is empty.");
         }
 
+        var rawSheetPayload = csvTextContent || JSON.stringify(parsedJsonArray || []);
+        var sheetChecksum = 0;
+        for (var si = 0; si < rawSheetPayload.length; si++) {
+          sheetChecksum = ((sheetChecksum << 5) - sheetChecksum + rawSheetPayload.charCodeAt(si)) | 0;
+        }
+        var sheetChecksumStr = rawSheetPayload.length + "_" + sheetChecksum.toString(36);
+
+        // If silent auto-sync and Google Sheet content is 100% identical to previous fetch, exit early without touching memory or DOM!
+        if (isSilent && window._lastSheetContentChecksum && window._lastSheetContentChecksum === sheetChecksumStr) {
+          console.log("[Google Sheets Sync] Sheet payload checksum unchanged (" + sheetChecksumStr + "). Zero mutations in Google Sheets. Skipping processing.");
+          window._isSyncingFromSheet = false;
+          return { unchanged: true };
+        }
+        window._lastSheetContentChecksum = sheetChecksumStr;
+
         if (!isSilent && progTitle) {
           progTitle.textContent = "⏳ Processing Spreadsheet Records...";
           if (progDesc) progDesc.textContent = "Normalizing and merging rows with clan database...";
@@ -4955,10 +5360,12 @@ function doGet(e) {
             }
           }
 
-          if (!row.firstName && !row.id && !row.lastName) return;
+          var hasRowName = Boolean((row.firstName && String(row.firstName).trim()) || (row.middleName && String(row.middleName).trim()) || (row.lastName && String(row.lastName).trim()));
+          if (!hasRowName) return;
 
           var normalized = normalizeImportedMember(row, records);
           normalized.member.forceImport = true;
+          normalized.member.isAutoSync = isSilent;
           var res = upsertMemberRecord(records, normalized.member, { forceImport: true });
           if (!res.record) return;
 
@@ -4982,14 +5389,14 @@ function doGet(e) {
         var cleanRecords = deduplicateClanRecords(records).filter(function(rec) {
           if (!rec) return false;
           var rId = rec.id || rec.recordId;
-          return !(typeof isMemberDeleted === "function" && isMemberDeleted(rId, rec.email, rec.clanMemberNumber));
+          return !(typeof isMemberDeleted === "function" && isMemberDeleted(rId, rec.email, rec.clanMemberNumber, rec.firstName, rec.lastName));
         });
         records = cleanRecords;
 
         // Reconcile Deletions (Sheet -> App)
-        var deleteSyncEnabled = true;
+        var deleteSyncEnabled = isSilent ? true : true;
         var delCheckEl = document.getElementById("syncDeletionsFromSheetCheckbox");
-        if (delCheckEl) deleteSyncEnabled = delCheckEl.checked;
+        if (delCheckEl && !isSilent) deleteSyncEnabled = delCheckEl.checked;
 
         var deletedFromSheetIds = [];
         var deletedFromSheetRecords = [];
@@ -5093,50 +5500,41 @@ function doGet(e) {
           }
         }
 
-        // Save imported/updated members to Cloud Firestore & Backend Database API
-        if (typeof window.cloudFirestoreBatchSaveMembers === "function" && newlyImportedOrUpdatedMembers.length > 0) {
-          try {
-            window.cloudFirestoreBatchSaveMembers(newlyImportedOrUpdatedMembers).catch(function(e) {});
-          } catch (e) {}
+        // Authoritatively sync global records memory state and local cache with cleanRecords
+        records = cleanRecords;
+        if (typeof saveRecords === "function") {
+          saveRecords(true);
+        } else {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
         }
 
-        if (!isStaticHost && typeof getBackendApiUrl === "function" && (newlyImportedOrUpdatedMembers.length > 0 || deletedFromSheetIds.length > 0)) {
-          try {
-            var token = localStorage.getItem("siara_session_token") || sessionStorage.getItem("siara_session_token") || "";
-            var importHeaders = { "Content-Type": "application/json" };
-            if (token) importHeaders["Authorization"] = "Bearer " + token;
-            var payloadMembers = newlyImportedOrUpdatedMembers;
-            if (payloadMembers.length > 0) {
-              payloadMembers.forEach(function(m) { m.forceImport = true; });
-              fetch(getBackendApiUrl("/api/members/import"), {
-                method: "POST",
-                headers: importHeaders,
-                body: JSON.stringify({ members: payloadMembers, author: "google_sheets_sync" })
-              }).catch(function(bErr) { console.warn("[syncFromGoogleSheetUrl] Non-blocking backend import notice:", bErr); });
-            }
-          } catch (bImportErr) {
-            console.warn("[syncFromGoogleSheetUrl] Backend import notice:", bImportErr);
+        // Broadcast mutation and update views ONLY if data genuinely changed to avoid screen shaking
+        var hasRealSheetMutations = (added > 0 || updated > 0 || (deletedFromSheetIds && deletedFromSheetIds.length > 0));
+        if (hasRealSheetMutations) {
+          if (typeof rebuildRecordIndexes === "function") {
+            rebuildRecordIndexes();
           }
-        }
+          if (window._clanSyncChannel) {
+            try {
+              window._clanSyncChannel.postMessage({
+                type: "RECORDS_MUTATED",
+                records: records,
+                timestamp: new Date().toISOString()
+              });
+            } catch(bcErr) {}
+          }
 
-        // Broadcast mutation and update views
-        if (window._clanSyncChannel) {
-          try {
-            window._clanSyncChannel.postMessage({
-              type: "RECORDS_MUTATED",
-              records: records,
-              timestamp: new Date().toISOString()
-            });
-          } catch(bcErr) {}
-        }
-
-        if (typeof refreshActiveClanViews === "function") {
-          refreshActiveClanViews(true);
-        } else if (typeof showCatalogue === "function") {
-          showCatalogue(currentFilter || "all");
-        }
-        if (typeof updateMetrics === "function") {
-          updateMetrics();
+          if (typeof refreshActiveClanViews === "function") {
+            refreshActiveClanViews(true);
+          } else if (typeof showCatalogue === "function") {
+            showCatalogue(currentFilter || "all");
+          }
+          if (typeof updateMetrics === "function") {
+            updateMetrics();
+          }
+          if (typeof showTree === "function" && document.getElementById("treeTab") && document.getElementById("treeTab").style.display !== "none") {
+            try { showTree(); } catch(e) {}
+          }
         }
 
         var delMsg = missingCount > 0 ? (" and reconciled " + missingCount + " deletion(s)") : "";
@@ -5275,7 +5673,7 @@ function doGet(e) {
     } catch (lvlErr) {}
 
     window._firestoreNotProvisioned = false;
-    const customDbId = "ai-studio-remixsiaramainac-af949323-b6c8-4f5f-8a13-50c8e01c0fbf";
+    const customDbId = (typeof firebaseConfig !== "undefined" && firebaseConfig.firestoreDatabaseId) ? firebaseConfig.firestoreDatabaseId : "ai-studio-remixremixsiaram-55d7db63-6a1e-4fd7-912e-12d5df072a9d";
     let db;
     try {
       db = firebase.app().firestore(customDbId);
@@ -5320,7 +5718,7 @@ function doGet(e) {
       }
 
       if (role === "editor") {
-        var restrictedEditor = ["manageUsers", "restoreProject", "synchronizeWithGitHub", "deleteMember", "deleteAllRecords"];
+        var restrictedEditor = ["restoreProject", "synchronizeWithGitHub", "deleteMember", "deleteAllRecords"];
         return restrictedEditor.indexOf(permissionName) === -1;
       }
 
@@ -7242,6 +7640,7 @@ SiaraMaina Clan Council & Administration`;
     // Provision / Pre-authorize New Member
     window.handleProvisionUser = async function(event) {
       if (event) event.preventDefault();
+      console.log("handleProvisionUser triggered");
       if (!requirePermission("manageUsers", "You do not have permission to manage users.")) return;
 
       const emailInput = document.getElementById("provEmail");
@@ -7871,10 +8270,19 @@ SiaraMaina Clan Council & Administration`;
                   var mId = m.id || m.recordId;
                   if (m.deleted === true || m.active === false || m.status === "deleted") return false;
                   if (typeof isMemberDeleted === "function" && isMemberDeleted(mId, m.email, m.clanMemberNumber, m.firstName, m.lastName)) return false;
-                  if (window._recentlyDeletedMemberIds && (window._recentlyDeletedMemberIds.has(mId) || (m.clanMemberNumber && window._recentlyDeletedMemberIds.has(m.clanMemberNumber)))) return false;
+                  if (window._recentlyDeletedMemberIds && (
+                    window._recentlyDeletedMemberIds.has(mId) || 
+                    (m.clanMemberNumber && window._recentlyDeletedMemberIds.has(m.clanMemberNumber)) ||
+                    (m.firstName && m.lastName && window._recentlyDeletedMemberIds.has(m.firstName + "_" + m.lastName))
+                  )) return false;
                   return true;
                 });
-                records = deduplicateClanRecords(cleanServerMembers);
+                var localFallback = [];
+                try { localFallback = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); } catch(e) {}
+                if (typeof records !== "undefined" && Array.isArray(records) && records.length > localFallback.length) {
+                  localFallback = records;
+                }
+                records = mergeServerAndLocalRecords(cleanServerMembers, localFallback);
                 loadedOk = true;
               }
             }
@@ -7899,11 +8307,28 @@ SiaraMaina Clan Council & Administration`;
               if (window._recentlyDeletedMemberIds && (window._recentlyDeletedMemberIds.has(mId) || (m.clanMemberNumber && window._recentlyDeletedMemberIds.has(m.clanMemberNumber)))) return false;
               return true;
             });
-            records = deduplicateClanRecords(cleanCloudMembers);
+            var localFallbackCloud = [];
+            try { localFallbackCloud = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); } catch(e) {}
+            if (typeof records !== "undefined" && Array.isArray(records) && records.length > localFallbackCloud.length) {
+              localFallbackCloud = records;
+            }
+            records = mergeServerAndLocalRecords(cleanCloudMembers, localFallbackCloud);
             loadedOk = true;
           }
         } catch(cfErr) {
           console.warn("[DataLoader] cloudFirestoreFetchAllMembers notice:", cfErr);
+        }
+      }
+
+      // 3. Fallback to direct Google Apps Script Web App sync (ideal for static hosts like GitHub Pages or when Firestore quota is exhausted)
+      if (!loadedOk && typeof syncFromGoogleSheetUrl === "function") {
+        try {
+          await syncFromGoogleSheetUrl({ silent: true });
+          if (Array.isArray(records) && records.length > 0) {
+            loadedOk = true;
+          }
+        } catch(shErr) {
+          console.warn("[DataLoader] Google Sheet Web App direct sync fallback notice:", shErr);
         }
       }
 
@@ -8054,70 +8479,71 @@ SiaraMaina Clan Council & Administration`;
 
       showDeleteConfirmation(
         "Confirm Bulk Deletion",
-        "Are you sure you want to delete " + ids.length + " selected member(s) from Cloud Firestore? This will immediately remove them from the database and the family tree.",
+        "Are you sure you want to delete " + ids.length + " selected member(s)? This will immediately remove them from active views.",
         async function() {
-          var confirmBtn = document.getElementById("confirmDeleteBtn");
-          var originalBtnText = confirmBtn ? confirmBtn.textContent : "Yes, Delete";
-          if (confirmBtn) {
-            confirmBtn.disabled = true;
-            confirmBtn.textContent = "⏳ Deleting...";
+          window._recentlyDeletedMemberIds = window._recentlyDeletedMemberIds || new Set();
+          ids.forEach(function(id) {
+            window._recentlyDeletedMemberIds.add(id);
+            var rec = typeof findRecord === "function" ? findRecord(id) : null;
+            if (rec && rec.clanMemberNumber) window._recentlyDeletedMemberIds.add(rec.clanMemberNumber);
+            if (typeof addPersistentDeletedId === "function") {
+              addPersistentDeletedId(id, rec ? rec.email : "", rec ? rec.clanMemberNumber : "", rec ? rec.firstName : "", rec ? rec.lastName : "");
+            }
+          });
+
+          records = records.filter(function(r) { return !ids.includes(r.id); });
+          records.forEach(function(item) {
+            ids.forEach(function(id) {
+              if (item.fatherId === id) item.fatherId = "";
+              if (item.motherId === id) item.motherId = "";
+              if (item.spouseId === id) item.spouseId = "";
+              if (Array.isArray(item.siblingIds)) {
+                item.siblingIds = item.siblingIds.filter(function(sid) { return sid !== id; });
+              }
+            });
+          });
+
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+          localStorage.setItem(LOCAL_DATA_UPDATED_AT_KEY, new Date().toISOString());
+
+          try { closeModal("deleteConfirmationModal"); } catch(e) {}
+          if (typeof refreshActiveClanViews === "function") {
+            refreshActiveClanViews(true);
+          } else {
+            showCatalogue(currentFilter || "all");
+          }
+          if (typeof updateMetrics === "function") {
+            updateMetrics();
+          }
+          if (window._clanSyncChannel) {
+            try {
+              window._clanSyncChannel.postMessage({
+                type: "RECORDS_MUTATED",
+                records: records,
+                timestamp: new Date().toISOString()
+              });
+            } catch(bcErr) {}
+          }
+          if (typeof showToast === "function") {
+            showToast("✅ Successfully deleted " + ids.length + " member(s).", "success");
           }
 
-          var previousRecords = JSON.parse(JSON.stringify(records));
-          var deletionSuccessful = false;
-
-          try {
-            // 1. Update in-memory records and unlink relations (Optimistic Update)
-            records = records.filter(function(r) { return !ids.includes(r.id); });
-            records.forEach(function(item) {
-              ids.forEach(function(id) {
-                if (item.fatherId === id) item.fatherId = "";
-                if (item.motherId === id) item.motherId = "";
-                if (item.spouseId === id) item.spouseId = "";
-                if (Array.isArray(item.siblingIds)) {
-                  item.siblingIds = item.siblingIds.filter(function(sid) { return sid !== id; });
-                }
-              });
-            });
-
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
-            localStorage.setItem(LOCAL_DATA_UPDATED_AT_KEY, new Date().toISOString());
-
-            window._recentlyDeletedMemberIds = window._recentlyDeletedMemberIds || new Set();
-            ids.forEach(id => {
-              window._recentlyDeletedMemberIds.add(id);
-              var rec = typeof findRecord === "function" ? findRecord(id) : null;
-              if (rec && rec.clanMemberNumber) window._recentlyDeletedMemberIds.add(rec.clanMemberNumber);
-              if (typeof addPersistentDeletedId === "function") {
-                addPersistentDeletedId(id, rec ? rec.email : "", rec ? rec.clanMemberNumber : "", rec ? rec.firstName : "", rec ? rec.lastName : "");
+          // Background sync
+          (async function() {
+            if (typeof window.cloudFirestoreBatchDeleteMembers === "function") {
+              try { await window.cloudFirestoreBatchDeleteMembers(ids, records); } catch(e) {}
+            } else if (typeof window.cloudFirestoreDeleteMember === "function") {
+              for (const id of ids) {
+                try { await window.cloudFirestoreDeleteMember(id, records); } catch(e) {}
               }
-            });
-
-            // 2. Authoritative direct write to Cloud Firestore via Firebase SDK (with timeout)
-            var firestorePromise = (async () => {
-              if (typeof window.cloudFirestoreBatchDeleteMembers === "function") {
-                return await window.cloudFirestoreBatchDeleteMembers(ids, records);
-              } else if (typeof window.cloudFirestoreDeleteMember === "function") {
-                for (const id of ids) {
-                  try { await window.cloudFirestoreDeleteMember(id, records); } catch(e) {}
-                }
-                return true;
-              }
-              return true;
-            })();
-
-            var timeoutPromise = new Promise((resolve) => {
-              setTimeout(() => resolve({ timeout: true }), 8000);
-            });
-
-            var fsRes = await Promise.race([firestorePromise, timeoutPromise]);
-            if (fsRes && fsRes.timeout) {
-              console.warn("[batchDeleteSelectedMembers] Cloud Firestore batch delete timed out; local deletion maintained.");
-            } else {
-              deletionSuccessful = true;
             }
-
-            // 3. If running with an active backend server, notify backend as well
+            if (typeof window.batchDeleteMembersFromGoogleWebApp === "function") {
+              try { await window.batchDeleteMembersFromGoogleWebApp(ids); } catch(gsErr) {}
+            } else if (typeof window.deleteMemberFromGoogleWebApp === "function") {
+              for (const delId of ids) {
+                try { await window.deleteMemberFromGoogleWebApp(delId, ""); } catch(e) {}
+              }
+            }
             var backendUrl = typeof getBackendBaseUrl === "function" ? getBackendBaseUrl() : "";
             if (backendUrl) {
               try {
@@ -8127,99 +8553,14 @@ SiaraMaina Clan Council & Administration`;
                 }
                 var headers = { "Content-Type": "application/json", "Accept": "application/json" };
                 if (token) headers["Authorization"] = "Bearer " + token;
-                
-                var fetchPromise = fetch(getBackendApiUrl("/api/members/batch-delete"), {
+                await fetch(getBackendApiUrl("/api/members/batch-delete"), {
                   method: "POST",
                   headers: headers,
                   body: JSON.stringify({ ids: ids, permanent: true })
                 });
-                var fetchTimeout = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 6000));
-                var res = await Promise.race([fetchPromise, fetchTimeout]);
-                if (res.ok) deletionSuccessful = true;
-              } catch(backendErr) {
-                console.warn("[batchDeleteSelectedMembers] Backend sync notice:", backendErr);
-              }
-            } else {
-              if (window._firestoreQuotaExhausted || !navigator.onLine) {
-                deletionSuccessful = true;
-              }
+              } catch(backendErr) {}
             }
-
-            // 4. Sync bulk deletion to connected Google Sheet
-            if (typeof window.batchDeleteMembersFromGoogleWebApp === "function") {
-              try {
-                await window.batchDeleteMembersFromGoogleWebApp(ids);
-              } catch(gsErr) {
-                console.warn("[batchDeleteSelectedMembers] Google Sheet delete notice:", gsErr);
-              }
-            } else if (typeof window.deleteMemberFromGoogleWebApp === "function") {
-              for (const delId of ids) {
-                try { await window.deleteMemberFromGoogleWebApp(delId, ""); } catch(e) {}
-              }
-            }
-            if (typeof window.GoogleSheetsDB !== "undefined" && typeof window.GoogleSheetsDB.batchDeleteMembers === "function") {
-              try { await window.GoogleSheetsDB.batchDeleteMembers(ids); } catch(gsDbErr) {}
-            }
-
-            // 5. Broadcast mutation to other local tabs
-            if (window._clanSyncChannel) {
-              try {
-                window._clanSyncChannel.postMessage({
-                  type: "RECORDS_MUTATED",
-                  records: records,
-                  timestamp: new Date().toISOString()
-                });
-              } catch(bcErr) {}
-            }
-
-            // 5. Update UI
-            if (typeof refreshActiveClanViews === "function") {
-              refreshActiveClanViews(true);
-            } else {
-              showCatalogue(currentFilter || "all");
-            }
-            if (typeof updateMetrics === "function") {
-              updateMetrics();
-            }
-
-            if (typeof showToast === "function") {
-              showToast("✅ Successfully deleted " + ids.length + " member(s).", "success");
-            }
-          } catch (err) {
-            console.error("[batchDeleteSelectedMembers] Error:", err);
-            var isQuotaOrNetwork = (err.message && (err.message.includes("resource-exhausted") || err.message.includes("Failed to fetch") || err.message.includes("quota"))) || window._firestoreQuotaExhausted;
-            
-            if (!isQuotaOrNetwork && !deletionSuccessful && navigator.onLine && (err.message && err.message.includes("permission-denied"))) {
-              records = previousRecords;
-              localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
-              if (window._recentlyDeletedMemberIds) {
-                ids.forEach(id => window._recentlyDeletedMemberIds.delete(id));
-              }
-              if (typeof refreshActiveClanViews === "function") {
-                refreshActiveClanViews(true);
-              } else {
-                showCatalogue(currentFilter || "all");
-              }
-              if (typeof updateMetrics === "function") {
-                updateMetrics();
-              }
-              alert("Could not delete members. Changes rolled back:\n\n" + err.message);
-            } else {
-              if (typeof showToast === "function") {
-                showToast("🗑️ Members removed locally. Cloud sync deferred.", "info");
-              }
-            }
-          } finally {
-            if (confirmBtn) {
-              confirmBtn.disabled = false;
-              confirmBtn.textContent = originalBtnText;
-            }
-            try {
-              if (typeof closeModal === "function") {
-                closeModal("deleteConfirmationModal");
-              }
-            } catch(mErr) {}
-          }
+          })();
         }
       );
     }
@@ -8251,73 +8592,69 @@ SiaraMaina Clan Council & Administration`;
       }
       var displayName = record ? fullName(record) : "this member";
 
-       showDeleteConfirmation(
+      showDeleteConfirmation(
         "Confirm Profile Deletion",
-        "Are you sure you want to delete " + displayName + "? This will immediately remove the member from Cloud Firestore and all active views.",
+        "Are you sure you want to delete " + displayName + "? This will immediately remove the member from active views.",
         async function() {
-          var confirmBtn = document.getElementById("confirmDeleteBtn");
-          var originalBtnText = confirmBtn ? confirmBtn.textContent : "Yes, Delete";
-          if (confirmBtn) {
-            confirmBtn.disabled = true;
-            confirmBtn.textContent = "⏳ Deleting...";
+          // 1. Immediately record persistent deletion and update local memory
+          window._recentlyDeletedMemberIds = window._recentlyDeletedMemberIds || new Set();
+          window._recentlyDeletedMemberIds.add(id);
+          if (record && record.clanMemberNumber) window._recentlyDeletedMemberIds.add(record.clanMemberNumber);
+          if (typeof addPersistentDeletedId === "function") {
+            addPersistentDeletedId(id, record ? record.email : "", record ? record.clanMemberNumber : "", record ? record.firstName : "", record ? record.lastName : "");
           }
 
-          // Capture previous state for rollback if deletion fails
-          var previousRecords = JSON.parse(JSON.stringify(records));
-          var deletionSuccessful = false;
-
-          try {
-            // 1. Optimistic Update: Immediately update in-memory records and unlink relations
-            records = records.filter(function(r) { return r && r.id !== id && r.recordId !== id; });
-            records.forEach(function(item) {
-              if (item.fatherId === id) item.fatherId = "";
-              if (item.motherId === id) item.motherId = "";
-              if (item.spouseId === id) item.spouseId = "";
-              if (Array.isArray(item.siblingIds)) {
-                item.siblingIds = item.siblingIds.filter(function(sid) { return sid !== id; });
-              }
-            });
-
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
-            localStorage.setItem(LOCAL_DATA_UPDATED_AT_KEY, new Date().toISOString());
-
-            // Update UI immediately (optimistic)
-            if (typeof refreshActiveClanViews === "function") {
-              refreshActiveClanViews(true);
-            } else {
-              showCatalogue(currentFilter || "all");
+          records = records.filter(function(r) { return r && r.id !== id && r.recordId !== id; });
+          records.forEach(function(item) {
+            if (item.fatherId === id) item.fatherId = "";
+            if (item.motherId === id) item.motherId = "";
+            if (item.spouseId === id) item.spouseId = "";
+            if (Array.isArray(item.siblingIds)) {
+              item.siblingIds = item.siblingIds.filter(function(sid) { return sid !== id; });
             }
-            if (typeof updateMetrics === "function") {
-              updateMetrics();
+          });
+
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+          localStorage.setItem(LOCAL_DATA_UPDATED_AT_KEY, new Date().toISOString());
+
+          if (typeof recordClanMutation === "function") {
+            recordClanMutation(id, "DELETE", record);
+          }
+
+          // 2. Instantly update UI and close confirmation modal (0ms latency)
+          try { closeModal("deleteConfirmationModal"); } catch(e) {}
+          if (typeof refreshActiveClanViews === "function") {
+            refreshActiveClanViews(true);
+          } else {
+            showCatalogue(currentFilter || "all");
+          }
+          if (typeof updateMetrics === "function") {
+            updateMetrics();
+          }
+          if (window._clanSyncChannel) {
+            try {
+              window._clanSyncChannel.postMessage({
+                type: "RECORDS_MUTATED",
+                records: records,
+                timestamp: new Date().toISOString()
+              });
+            } catch(bcErr) {}
+          }
+          if (typeof showToast === "function") {
+            showToast("🗑️ Member deleted successfully.", "success");
+          }
+
+          // 3. Asynchronously sync deletion to Cloud Firestore, Express Backend, and Google Sheets in background
+          (async function() {
+            if (typeof window.cloudFirestoreDeleteMember === "function") {
+              try { await window.cloudFirestoreDeleteMember(id, records); } catch(cfdErr) {}
             }
-
-            // 2. Authoritative direct write to Cloud Firestore via Firebase SDK (with timeout guard)
-            window._recentlyDeletedMemberIds = window._recentlyDeletedMemberIds || new Set();
-            window._recentlyDeletedMemberIds.add(id);
-            if (record && record.clanMemberNumber) window._recentlyDeletedMemberIds.add(record.clanMemberNumber);
-            if (typeof addPersistentDeletedId === "function") {
-              addPersistentDeletedId(id, record ? record.email : "", record ? record.clanMemberNumber : "", record ? record.firstName : "", record ? record.lastName : "");
+            if (typeof window.deleteMemberFromGoogleWebApp === "function") {
+              try { await window.deleteMemberFromGoogleWebApp(id, record ? record.email : "", displayName, record); } catch(gsDelErr) {}
             }
-
-            var firestorePromise = (async () => {
-              if (typeof window.cloudFirestoreDeleteMember === "function") {
-                return await window.cloudFirestoreDeleteMember(id, records);
-              }
-              return true;
-            })();
-
-            var timeoutPromise = new Promise((resolve) => {
-              setTimeout(() => resolve({ timeout: true }), 6000);
-            });
-
-            var fsResult = await Promise.race([firestorePromise, timeoutPromise]);
-            if (fsResult && fsResult.timeout) {
-              console.warn("[deleteMember] Cloud Firestore delete timed out; local deletion kept.");
-            } else {
-              deletionSuccessful = true;
+            if (typeof window.GoogleSheetsDB !== "undefined" && typeof window.GoogleSheetsDB.deleteMember === "function") {
+              try { await window.GoogleSheetsDB.deleteMember(id, record ? record.email : ""); } catch(gsDbErr) {}
             }
-
-            // 3. If running with an active backend server, notify backend as well
             var backendUrl = typeof getBackendBaseUrl === "function" ? getBackendBaseUrl() : "";
             if (backendUrl) {
               try {
@@ -8327,91 +8664,13 @@ SiaraMaina Clan Council & Administration`;
                 }
                 var delHeaders = { "Accept": "application/json", "Content-Type": "application/json" };
                 if (token) delHeaders["Authorization"] = "Bearer " + token;
-                
-                var fetchPromise = fetch(getBackendApiUrl("/api/members?id=" + encodeURIComponent(id) + "&permanent=true"), {
+                await fetch(getBackendApiUrl("/api/members?id=" + encodeURIComponent(id) + "&permanent=true"), {
                   method: "DELETE",
                   headers: delHeaders
                 });
-                var fetchTimeout = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 5000));
-                var res = await Promise.race([fetchPromise, fetchTimeout]);
-                if (res.ok) deletionSuccessful = true;
-              } catch(backendErr) {
-                console.warn("[deleteMember] Backend sync notice:", backendErr);
-              }
-            } else {
-              if (window._firestoreQuotaExhausted || !navigator.onLine) {
-                deletionSuccessful = true;
-              }
+              } catch(backendErr) {}
             }
-
-            // 3b. Sync deletion to connected Google Sheet
-            if (typeof window.deleteMemberFromGoogleWebApp === "function") {
-              try {
-                await window.deleteMemberFromGoogleWebApp(id, record ? record.email : "", displayName, record);
-              } catch(gsDelErr) {
-                console.warn("[deleteMember] Google Sheet delete notice:", gsDelErr);
-              }
-            }
-            if (typeof window.GoogleSheetsDB !== "undefined" && typeof window.GoogleSheetsDB.deleteMember === "function") {
-              try { await window.GoogleSheetsDB.deleteMember(id, record ? record.email : ""); } catch(gsDbErr) {}
-            }
-
-            // 4. Broadcast mutation to other local tabs
-            if (window._clanSyncChannel) {
-              try {
-                window._clanSyncChannel.postMessage({
-                  type: "RECORDS_MUTATED",
-                  records: records,
-                  timestamp: new Date().toISOString()
-                });
-              } catch(bcErr) {}
-            }
-
-            if (typeof showToast === "function") {
-              showToast("🗑️ Member deleted successfully.", "success");
-            }
-          } catch(e) {
-            console.error("[deleteMember] Error:", e);
-            var isQuotaOrNetwork = (e.message && (e.message.includes("resource-exhausted") || e.message.includes("Failed to fetch") || e.message.includes("quota"))) || window._firestoreQuotaExhausted;
-            
-            if (!isQuotaOrNetwork && !deletionSuccessful && navigator.onLine && (e.message && e.message.includes("permission-denied"))) {
-              // ROLLBACK OPTIMISTIC STATE only on permission denied / fatal auth error
-              records = previousRecords;
-              localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
-              if (window._recentlyDeletedMemberIds) {
-                window._recentlyDeletedMemberIds.delete(id);
-              }
-
-              if (typeof refreshActiveClanViews === "function") {
-                refreshActiveClanViews(true);
-              } else {
-                showCatalogue(currentFilter || "all");
-              }
-              if (typeof updateMetrics === "function") {
-                updateMetrics();
-              }
-
-              var errMessage = e.message || "Failed to complete deletion.";
-              if (errMessage.includes("permission-denied") || errMessage.includes("PERMISSION_DENIED")) {
-                errMessage = "Permission denied: Administrator authorization is required to delete clan members.";
-              }
-              alert("Could not delete member. Changes have been rolled back:\n\n" + errMessage);
-            } else {
-              if (typeof showToast === "function") {
-                showToast("🗑️ Member removed locally. Cloud sync deferred.", "info");
-              }
-            }
-          } finally {
-            if (confirmBtn) {
-              confirmBtn.disabled = false;
-              confirmBtn.textContent = originalBtnText;
-            }
-            try {
-              if (typeof closeModal === "function") {
-                closeModal("deleteConfirmationModal");
-              }
-            } catch(mErr) {}
-          }
+          })();
         }
       );
     }
@@ -8500,6 +8759,15 @@ SiaraMaina Clan Council & Administration`;
     var _classicalTreeCache = new Map();
     var STATIC_DEFAULT_AVATAR = "data:image/svg+xml;charset=utf-8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="#103d2b" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>');
 
+    function extractMemberRefId(val) {
+      if (!val) return "";
+      var s = String(val).trim();
+      var match = s.match(/\[([^\]]+)\]/);
+      if (match && match[1]) return match[1].trim();
+      return s;
+    }
+    window.extractMemberRefId = extractMemberRefId;
+
     function rebuildRecordIndexes() {
       _recordIndexMap.clear();
       _childrenIndexMap.clear();
@@ -8512,13 +8780,25 @@ SiaraMaina Clan Council & Administration`;
           var r = records[i];
           if (r && r.id) {
             _recordIndexMap.set(r.id, r);
+            if (r.recordId) _recordIndexMap.set(r.recordId, r);
+
             if (r.fatherId) {
-              if (!_childrenIndexMap.has(r.fatherId)) _childrenIndexMap.set(r.fatherId, []);
-              _childrenIndexMap.get(r.fatherId).push(r);
+              var fClean = extractMemberRefId(r.fatherId);
+              if (!_childrenIndexMap.has(fClean)) _childrenIndexMap.set(fClean, []);
+              _childrenIndexMap.get(fClean).push(r);
+              if (fClean !== r.fatherId) {
+                if (!_childrenIndexMap.has(r.fatherId)) _childrenIndexMap.set(r.fatherId, []);
+                _childrenIndexMap.get(r.fatherId).push(r);
+              }
             }
             if (r.motherId) {
-              if (!_childrenIndexMap.has(r.motherId)) _childrenIndexMap.set(r.motherId, []);
-              _childrenIndexMap.get(r.motherId).push(r);
+              var mClean = extractMemberRefId(r.motherId);
+              if (!_childrenIndexMap.has(mClean)) _childrenIndexMap.set(mClean, []);
+              _childrenIndexMap.get(mClean).push(r);
+              if (mClean !== r.motherId) {
+                if (!_childrenIndexMap.has(r.motherId)) _childrenIndexMap.set(r.motherId, []);
+                _childrenIndexMap.get(r.motherId).push(r);
+              }
             }
           }
         }
@@ -8531,22 +8811,172 @@ SiaraMaina Clan Council & Administration`;
 
     function findRecord(id) {
       if (!id) return null;
+      var cleanId = extractMemberRefId(id);
       if (_recordIndexMap.size === 0 && Array.isArray(records) && records.length > 0) {
         rebuildRecordIndexes();
       }
-      var cached = _recordIndexMap.get(id);
+      var cached = _recordIndexMap.get(cleanId) || _recordIndexMap.get(id);
       if (cached) return cached;
       if (Array.isArray(records)) {
         for (var i = 0; i < records.length; i++) {
-          if (records[i] && records[i].id === id) {
-            _recordIndexMap.set(id, records[i]);
-            return records[i];
+          var rec = records[i];
+          if (rec && (rec.id === cleanId || rec.id === id || rec.recordId === cleanId || rec.recordId === id)) {
+            _recordIndexMap.set(cleanId, rec);
+            return rec;
           }
         }
       }
       return null;
     }
     window.findRecord = findRecord;
+
+    function findSpouseRecord(record) {
+      if (!record) return null;
+      var rec = (typeof record === "string") ? findRecord(record) : record;
+      if (!rec) return null;
+
+      // Avoid infinite loop if rec is synthetic
+      if (rec.isSyntheticSpouse && rec.spouseId) {
+        return findRecord(rec.spouseId);
+      }
+
+      var recId = rec.id || rec.recordId || "";
+      var rFn = (rec.firstName || "").toLowerCase();
+      var rLn = (rec.lastName || "").toLowerCase();
+      var rMn = (rec.middleName || "").toLowerCase();
+      var cleanRecId = (typeof extractMemberRefId === "function") ? extractMemberRefId(recId) : recId;
+
+      function isForbidden(cand) {
+        if (!cand) return false;
+        var cId = cand.id || cand.recordId || "";
+        var cFn = (cand.firstName || "").toLowerCase();
+        var cLn = (cand.lastName || "").toLowerCase();
+        var cMn = (cand.middleName || "").toLowerCase();
+
+        var isA_James = (recId === "siara" || (rFn === "james" && rLn === "siara"));
+        var isB_Helena = (cFn === "helena" && (cLn === "shayo" || cMn.indexOf("elias") !== -1));
+
+        var isB_James = (cId === "siara" || (cFn === "james" && cLn === "siara"));
+        var isA_Helena = (rFn === "helena" && (rLn === "shayo" || rMn.indexOf("elias") !== -1));
+
+        return (isA_James && isB_Helena) || (isB_James && isA_Helena);
+      }
+
+      // 1. Direct spouseId link
+      if (rec.spouseId) {
+        var sp = findRecord(rec.spouseId);
+        if (sp && sp.id !== recId && !isForbidden(sp)) return sp;
+      }
+
+      // 2. Direct spouse text fields: spouse, spouseName, partner, wife, husband, spouseRef
+      var spouseNameStr = "";
+      var textCandidates = [rec.spouse, rec.spouseName, rec.partner, rec.wife, rec.husband, rec.spouseRef];
+      for (var t = 0; t < textCandidates.length; t++) {
+        var tc = textCandidates[t];
+        if (tc && typeof tc === "string" && tc.trim()) {
+          spouseNameStr = tc.trim();
+          break;
+        } else if (tc && typeof tc === "object" && tc.id) {
+          var spObj = findRecord(tc.id);
+          if (spObj && spObj.id !== recId && !isForbidden(spObj)) return spObj;
+        }
+      }
+
+      if (spouseNameStr) {
+        // Try finding by ID
+        var spById = findRecord(spouseNameStr);
+        if (spById && spById.id !== recId && !isForbidden(spById)) return spById;
+
+        // Try finding standalone record in records by name match
+        var cleanSpouseQuery = spouseNameStr.toLowerCase();
+        if (Array.isArray(records)) {
+          for (var i = 0; i < records.length; i++) {
+            var cand = records[i];
+            if (!cand || cand.id === recId || isForbidden(cand)) continue;
+            var candName = (typeof fullName === "function" ? fullName(cand) : ((cand.firstName || "") + " " + (cand.lastName || ""))).trim().toLowerCase();
+            if (candName && (candName === cleanSpouseQuery || candName.indexOf(cleanSpouseQuery) !== -1 || cleanSpouseQuery.indexOf(candName) !== -1)) {
+              return cand;
+            }
+          }
+        }
+      }
+
+      // 3. Reverse link: another member pointing to rec as their spouseId or spouse name
+      if (cleanRecId && Array.isArray(records)) {
+        var recNameLower = (typeof fullName === "function" ? fullName(rec) : "").trim().toLowerCase();
+        for (var i = 0; i < records.length; i++) {
+          var candidate = records[i];
+          if (!candidate || candidate.id === recId || isForbidden(candidate)) continue;
+
+          if (candidate.spouseId) {
+            var candSpClean = (typeof extractMemberRefId === "function") ? extractMemberRefId(candidate.spouseId) : candidate.spouseId;
+            if (candidate.spouseId === recId || candSpClean === cleanRecId) {
+              return candidate;
+            }
+          }
+
+          var candSpName = (candidate.spouse || candidate.spouseName || candidate.partner || candidate.wife || candidate.husband || "").trim().toLowerCase();
+          if (recNameLower && candSpName && (candSpName === recNameLower || candSpName.indexOf(recNameLower) !== -1 || recNameLower.indexOf(candSpName) !== -1)) {
+            return candidate;
+          }
+        }
+      }
+
+      // 4. Reverse parentage link through children
+      if (typeof childrenOf === "function" && cleanRecId) {
+        var kids = childrenOf(cleanRecId);
+        for (var k = 0; k < kids.length; k++) {
+          var child = kids[k];
+          if (!child) continue;
+          var otherParentId = "";
+          var fatherClean = child.fatherId ? extractMemberRefId(child.fatherId) : "";
+          var motherClean = child.motherId ? extractMemberRefId(child.motherId) : "";
+
+          if (fatherClean === cleanRecId && motherClean) {
+            otherParentId = motherClean;
+          } else if (motherClean === cleanRecId && fatherClean) {
+            otherParentId = fatherClean;
+          }
+
+          if (otherParentId) {
+            var coParent = findRecord(otherParentId);
+            if (coParent && coParent.id !== recId && !isForbidden(coParent)) return coParent;
+          }
+        }
+      }
+
+      // 5. Synthetic Spouse Fallback if spouse name string exists but no standalone profile found
+      if (spouseNameStr && !isForbidden({ firstName: spouseNameStr })) {
+        var syntheticId = "sp_synth_" + cleanRecId;
+        return {
+          id: syntheticId,
+          recordId: syntheticId,
+          firstName: spouseNameStr,
+          middleName: "",
+          lastName: "",
+          honorific: "Spouse",
+          branchType: rec.branchType || "heritage",
+          photo: "",
+          photoUrl: "",
+          storedPhoto: "",
+          deceased: false,
+          maritalStatus: "Married",
+          spouseId: rec.id,
+          isSyntheticSpouse: true
+        };
+      }
+
+      return null;
+    }
+    window.findSpouseRecord = findSpouseRecord;
+
+    function getMemberPhotoUrl(record) {
+      if (!record) return "";
+      var p = record.photo || record.storedPhoto || record.photoUrl || record.photoFile || record.passportPhoto || record.image || record.imageUrl || record.avatar || "";
+      if (typeof p === "string") p = p.trim();
+      return p || "";
+    }
+    window.getMemberPhotoUrl = getMemberPhotoUrl;
 
     function fullName(record) {
       if (!record) return "";
@@ -9221,11 +9651,11 @@ showCatalogue(currentFilter);
       document.getElementById("deadMetric").textContent =
         uRecs.filter(function(r) { return r.deceased || (r.dod && r.dod.trim() !== ""); }).length;
       document.getElementById("heritageMetric").textContent =
-        uRecs.filter(function(r) { return r.branchType === "heritage"; }).length;
+        uRecs.filter(function(r) { return getMemberBranchKey(r) === "heritage"; }).length;
       document.getElementById("siaraMetric").textContent =
-        uRecs.filter(function(r) { return isSiaraBranchMember(r); }).length;
+        uRecs.filter(function(r) { return isSiaraBranchMember(r) || getMemberBranchKey(r) === "siara"; }).length;
       document.getElementById("mainaMetric").textContent =
-        uRecs.filter(function(r) { return r.branchType === "maina"; }).length;
+        uRecs.filter(function(r) { return isMainaBranchMember(r) || getMemberBranchKey(r) === "maina"; }).length;
     }
 
     function isBirthdaySoon(record) {
@@ -9497,7 +9927,9 @@ showCatalogue(currentFilter);
           currentFilter === "custom" ||
           (currentFilter === "living" && !record.deceased && !(record.dod && record.dod.trim() !== "")) ||
           (currentFilter === "deceased" && (record.deceased || (record.dod && record.dod.trim() !== ""))) ||
-          (currentFilter === "siara" && (isSiaraBranchMember(record) || isMalitiBranchMember(record))) ||
+          (currentFilter === "heritage" && getMemberBranchKey(record) === "heritage") ||
+          (currentFilter === "siara" && (isSiaraBranchMember(record) || isMalitiBranchMember(record) || getMemberBranchKey(record) === "siara")) ||
+          (currentFilter === "maina" && (isMainaBranchMember(record) || getMemberBranchKey(record) === "maina")) ||
           record.branchType === currentFilter;
 
         var searchable = [
@@ -9550,7 +9982,9 @@ showCatalogue(currentFilter);
 saveStoredSettings();
       updateMetrics();
       renderUpcomingBirthdays();
-      window.scrollTo(0, 0);
+      if (!window._isBackgroundViewRefresh) {
+        window.scrollTo(0, 0);
+      }
     }
 
     function getUpcomingBirthdays() {
@@ -10048,13 +10482,16 @@ updateInviteLink();
 
     function childrenOf(id) {
       if (!id) return [];
+      var cleanId = (typeof extractMemberRefId === "function") ? extractMemberRefId(id) : id;
       if (_childrenIndexMap.size === 0 && Array.isArray(records) && records.length > 0) {
         rebuildRecordIndexes();
       }
-      var cached = _childrenIndexMap.get(id);
-      if (cached) return cached;
+      var cached = _childrenIndexMap.get(cleanId) || _childrenIndexMap.get(id);
+      if (cached && cached.length > 0) return cached;
       return (records || []).filter(function(record) {
-        return record.fatherId === id || record.motherId === id;
+        var fClean = (typeof extractMemberRefId === "function") ? extractMemberRefId(record.fatherId) : record.fatherId;
+        var mClean = (typeof extractMemberRefId === "function") ? extractMemberRefId(record.motherId) : record.motherId;
+        return fClean === cleanId || mClean === cleanId || record.fatherId === id || record.motherId === id;
       });
     }
 
@@ -10703,9 +11140,9 @@ updateInviteLink();
 
     function renderCardPhotoHtml(record, sizePx) {
       sizePx = sizePx || 44;
-      var hasPhoto = record && record.photo && String(record.photo).trim().length > 0;
-      if (hasPhoto) {
-        return `<img src="${escapeHtml(record.photo)}" loading="lazy" decoding="async" fetchpriority="low" width="${sizePx}" height="${sizePx}" style="width:${sizePx}px;height:${sizePx}px;border-radius:50%;object-fit:cover;border:2px solid var(--gold);flex:0 0 auto;display:block;" alt="${escapeHtml(fullName(record))}">`;
+      var photoUrl = (typeof getMemberPhotoUrl === "function") ? getMemberPhotoUrl(record) : (record && record.photo ? String(record.photo).trim() : "");
+      if (photoUrl) {
+        return `<img src="${escapeHtml(photoUrl)}" loading="lazy" decoding="async" fetchpriority="low" width="${sizePx}" height="${sizePx}" style="width:${sizePx}px;height:${sizePx}px;border-radius:50%;object-fit:cover;border:2px solid var(--gold);flex:0 0 auto;display:block;" alt="${escapeHtml(fullName(record))}">`;
       }
       var init = initials(record) || "👤";
       return `
@@ -10808,7 +11245,7 @@ updateInviteLink();
     }
 
     function spouseCard(record) {
-      var spouse = findRecord(record.spouseId);
+      var spouse = findSpouseRecord(record);
       if (!spouse || !showSpouseRecords) return "";
       var style = window.currentTreeStyle || "square";
       var imgUrl = (spouse.photo && spouse.photo.trim()) ? spouse.photo : STATIC_DEFAULT_AVATAR;
@@ -10897,7 +11334,7 @@ updateInviteLink();
     }
 
     function buildTree(memberId, filter) {
-      var cacheKey = memberId + "_" + (filter || "all") + "_v" + _recordsVersion;
+      var cacheKey = memberId + "_" + (filter || "all") + "_spouses_" + (showSpouseRecords ? "1" : "0") + "_v" + _recordsVersion;
       if (_classicalTreeCache.has(cacheKey)) {
         return _classicalTreeCache.get(cacheKey);
       }
@@ -11004,7 +11441,8 @@ updateInviteLink();
     // =========================================================================
     function buildD3HierarchyData(rootRecord, filterBranch) {
       if (!rootRecord) return null;
-      var cacheKey = rootRecord.id + "_" + (filterBranch || "all") + "_v" + _recordsVersion;
+      var cleanRootId = (typeof extractMemberRefId === "function") ? extractMemberRefId(rootRecord.id) : rootRecord.id;
+      var cacheKey = cleanRootId + "_" + (filterBranch || "all") + "_spouses_" + (showSpouseRecords ? "1" : "0") + "_v" + _recordsVersion;
       if (_d3HierarchyCache.has(cacheKey)) {
         return _d3HierarchyCache.get(cacheKey);
       }
@@ -11015,14 +11453,19 @@ updateInviteLink();
         if (!r || !r.id || visited[r.id]) return [];
         visited[r.id] = true;
 
-        var directChildren = childrenOf(r.id);
-        if (filterBranch) {
+        var rCleanId = (typeof extractMemberRefId === "function") ? extractMemberRefId(r.id) : r.id;
+        var directChildren = childrenOf(rCleanId);
+
+        // When root is Ngowi I (clan progenitor) or foundational ancestor, display all descendants cascade
+        var isProgenitorRoot = (cleanRootId === "ngowi1" || cleanRootId === "mremi" || filterBranch === "clan" || !filterBranch);
+
+        if (filterBranch && !isProgenitorRoot) {
           directChildren = directChildren.filter(function(child) {
             if (filterBranch === "siara") return isSiaraBranchMember(child) || isMalitiBranchMember(child);
             if (filterBranch === "maliti") return isMalitiBranchMember(child);
             if (filterBranch === "maina") return isMainaBranchMember(child);
             if (filterBranch === "masaki") return isMasakiBranchMember(child);
-            if (filterBranch === "heritage") return getMemberBranchKey(child) === "heritage";
+            if (filterBranch === "heritage") return true;
             return child.branchType === filterBranch;
           });
         }
@@ -11033,7 +11476,7 @@ updateInviteLink();
       }
 
       function buildNode(r) {
-        var spouse = r.spouseId ? findRecord(r.spouseId) : null;
+        var spouse = showSpouseRecords ? findSpouseRecord(r) : null;
         var ch = getChildren(r);
         var branch = getMemberBranchKey(r);
         var gen = generationNumber(r);
@@ -11120,7 +11563,335 @@ updateInviteLink();
     }
     window.getTreeBranchBg = getTreeBranchBg;
 
-    function renderD3Tree(rootRecord, filterBranch, targetHighlightId) {
+    // Interactive Custom Root & Search Toolbar for all tree visualizations
+    function renderTreeCustomRootBar(searchPanel, rootRecord, activeStyle, onMatchNode, d3Root) {
+      searchPanel.html("");
+
+      // 1. Spotlight Search within active tree nodes
+      var spotlightGroup = searchPanel.append("div")
+        .style("display", "inline-flex")
+        .style("align-items", "center")
+        .style("gap", "4px");
+
+      spotlightGroup.append("span")
+        .style("font-size", "0.95rem")
+        .style("cursor", "default")
+        .text("🔍");
+
+      spotlightGroup.append("input")
+        .attr("type", "search")
+        .attr("class", "d3-tree-search-input")
+        .attr("placeholder", "Spotlight node in tree...")
+        .attr("id", "d3TreeSearchInput")
+        .on("input", function() {
+          var val = this.value.trim().toLowerCase();
+          if (!val) {
+            d3.selectAll(".d3-node-group").classed("node-selected", false);
+            d3.selectAll(".d3-tree-link").classed("link-highlight", false);
+            return;
+          }
+          if (d3Root && typeof onMatchNode === "function") {
+            var matchNode = null;
+            d3Root.each(function(d) {
+              if (matchNode) return;
+              var name = (d.data && d.data.name) ? d.data.name.toLowerCase() : "";
+              var phone = (d.data && d.data.record && d.data.record.phone) ? d.data.record.phone.toLowerCase() : "";
+              var cNum = (d.data && d.data.clanNumber) ? d.data.clanNumber.toLowerCase() : "";
+              if (name.indexOf(val) !== -1 || phone.indexOf(val) !== -1 || cNum.indexOf(val) !== -1) {
+                matchNode = d;
+              }
+            });
+            if (matchNode) {
+              onMatchNode(matchNode.data ? matchNode.data.id : matchNode);
+            }
+          }
+        });
+
+      // Divider
+      searchPanel.append("div")
+        .style("width", "1px")
+        .style("height", "20px")
+        .style("background", "#cbd5e1")
+        .style("margin", "0 2px");
+
+      // 2. Tree Root Dropdown
+      var rootGroup = searchPanel.append("div")
+        .style("display", "inline-flex")
+        .style("align-items", "center")
+        .style("gap", "5px");
+
+      rootGroup.append("label")
+        .style("font-size", "0.72rem")
+        .style("font-weight", "800")
+        .style("color", "var(--forest)")
+        .style("white-space", "nowrap")
+        .text("Root:");
+
+      var isPredefined = ["ngowi1", "siara", "maina", "josephMaliti"].indexOf(rootRecord.id) !== -1;
+
+      var rootSelect = rootGroup.append("select")
+        .attr("class", "tree-root-select")
+        .style("padding", "5px 8px")
+        .style("border", "1px solid var(--line)")
+        .style("border-radius", "6px")
+        .style("font-size", "0.72rem")
+        .style("font-weight", "800")
+        .style("background", "#ffffff")
+        .style("color", "var(--forest)")
+        .style("cursor", "pointer")
+        .on("change", function() {
+          var val = this.value;
+          if (val === "__custom_type__") {
+            if (customInput && customInput.node()) {
+              customInput.node().focus();
+              showSuggestions("");
+            }
+          } else if (val === "siara" || val === "maina" || val === "maliti") {
+            showTree(val, null, activeStyle);
+          } else if (val === "ngowi1") {
+            showTree("clan", "ngowi1", activeStyle);
+          } else {
+            showTree("custom", val, activeStyle);
+          }
+        });
+
+      rootSelect.append("option")
+        .attr("value", "ngowi1")
+        .attr("selected", rootRecord.id === "ngowi1" ? true : null)
+        .text("👑 Clan Root (Ngowi I)");
+      rootSelect.append("option")
+        .attr("value", "siara")
+        .attr("selected", rootRecord.id === "siara" ? true : null)
+        .text("🌿 Siara Branch");
+      rootSelect.append("option")
+        .attr("value", "maina")
+        .attr("selected", rootRecord.id === "maina" ? true : null)
+        .text("🍂 Maina Branch");
+      rootSelect.append("option")
+        .attr("value", "josephMaliti")
+        .attr("selected", rootRecord.id === "josephMaliti" ? true : null)
+        .text("🏛️ Maliti Family");
+      rootSelect.append("option")
+        .attr("value", "__custom_type__")
+        .text("🔍 Custom Member Root...");
+
+      if (!isPredefined) {
+        var rootSp = (showSpouseRecords && typeof findSpouseRecord === "function") ? findSpouseRecord(rootRecord) : null;
+        rootSelect.append("option")
+          .attr("value", rootRecord.id)
+          .attr("selected", true)
+          .text("👤 Custom Root: " + fullName(rootRecord) + (rootSp ? (" & " + fullName(rootSp)) : ""));
+      }
+
+      // Divider
+      searchPanel.append("div")
+        .style("width", "1px")
+        .style("height", "20px")
+        .style("background", "#cbd5e1")
+        .style("margin", "0 2px");
+
+      // 3. Custom Root Member Typing Input with Instant Live Autocomplete
+      var customRootBox = searchPanel.append("div")
+        .attr("class", "custom-root-search-box")
+        .style("position", "relative")
+        .style("display", "inline-flex")
+        .style("align-items", "center")
+        .style("gap", "4px");
+
+      var customInput = customRootBox.append("input")
+        .attr("type", "text")
+        .attr("class", "custom-root-input")
+        .attr("placeholder", "Type member name for Custom Root...")
+        .attr("autocomplete", "off")
+        .property("value", !isPredefined ? fullName(rootRecord) : "");
+
+      var suggestionsList = customRootBox.append("div")
+        .attr("class", "custom-root-suggestions-menu")
+        .style("display", "none");
+
+      function getMatchingMembers(query) {
+        var recs = (typeof records !== "undefined" && Array.isArray(records)) ? records : [];
+        if (!query || !query.trim()) return recs.slice(0, 10);
+        var q = query.toLowerCase().trim();
+        return recs.filter(function(r) {
+          if (!r) return false;
+          var fn = fullName(r).toLowerCase();
+          var cn = (r.clanMemberNumber || "").toLowerCase();
+          var id = (r.id || "").toLowerCase();
+          var occ = (r.occupation || "").toLowerCase();
+          return fn.indexOf(q) !== -1 || cn.indexOf(q) !== -1 || id.indexOf(q) !== -1 || occ.indexOf(q) !== -1;
+        }).sort(function(a, b) {
+          var aName = fullName(a).toLowerCase();
+          var bName = fullName(b).toLowerCase();
+          var aStarts = aName.indexOf(q) === 0;
+          var bStarts = bName.indexOf(q) === 0;
+          if (aStarts && !bStarts) return -1;
+          if (!aStarts && bStarts) return 1;
+          return aName.localeCompare(bName);
+        }).slice(0, 10);
+      }
+
+      function showSuggestions(q) {
+        var matches = getMatchingMembers(q);
+        suggestionsList.html("");
+        if (matches.length === 0) {
+          suggestionsList.append("div")
+            .style("padding", "10px 12px")
+            .style("font-size", "0.72rem")
+            .style("color", "#64748b")
+            .text("No clan members match \"" + q + "\"");
+          suggestionsList.style("display", "block");
+          return;
+        }
+
+        matches.forEach(function(m) {
+          var row = suggestionsList.append("div")
+            .attr("class", "custom-root-suggestion-item")
+            .on("click", function() {
+              suggestionsList.style("display", "none");
+              customInput.property("value", fullName(m));
+              showTree("custom", m.id, activeStyle);
+            });
+
+          // Mini Photo or Initials Avatar
+          var photoSrc = (m.photo || m.storedPhoto || m.photoFile || m.photoUrl || "").trim();
+          var avatar = row.append("div")
+            .style("width", "26px")
+            .style("height", "26px")
+            .style("border-radius", "50%")
+            .style("background", "#e2e8f0")
+            .style("display", "flex")
+            .style("align-items", "center")
+            .style("justify-content", "center")
+            .style("font-size", "0.64rem")
+            .style("font-weight", "900")
+            .style("color", "#1e293b")
+            .style("flex-shrink", "0")
+            .style("overflow", "hidden");
+
+          if (photoSrc) {
+            avatar.append("img")
+              .attr("src", photoSrc)
+              .style("width", "100%")
+              .style("height", "100%")
+              .style("object-fit", "cover");
+          } else {
+            avatar.text(initials(m) || "👤");
+          }
+
+          var textCol = row.append("div").style("flex", "1").style("overflow", "hidden");
+          textCol.append("div")
+            .style("font-weight", "800")
+            .style("color", "#0f172a")
+            .style("white-space", "nowrap")
+            .style("text-overflow", "ellipsis")
+            .style("overflow", "hidden")
+            .text(fullName(m));
+          textCol.append("div")
+            .style("font-size", "0.65rem")
+            .style("color", "#64748b")
+            .text((m.clanMemberNumber ? (m.clanMemberNumber + " • ") : "") + (m.branchType || "Clan") + " • Gen " + generationNumber(m));
+        });
+
+        suggestionsList.style("display", "block");
+      }
+
+      customInput
+        .on("focus", function() {
+          showSuggestions(this.value);
+        })
+        .on("input", function() {
+          showSuggestions(this.value);
+        })
+        .on("keydown", function(event) {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            var matches = getMatchingMembers(this.value);
+            if (matches.length > 0) {
+              suggestionsList.style("display", "none");
+              customInput.property("value", fullName(matches[0]));
+              showTree("custom", matches[0].id, activeStyle);
+            }
+          } else if (event.key === "Escape") {
+            suggestionsList.style("display", "none");
+          }
+        });
+
+      // Set Root Button
+      customRootBox.append("button")
+        .attr("type", "button")
+        .attr("class", "custom-root-generate-btn")
+        .html("🌱 Set Root")
+        .attr("title", "Generate tree with typed member as root and display all their descendants")
+        .on("click", function() {
+          var val = customInput.property("value");
+          var matches = getMatchingMembers(val);
+          if (matches.length > 0) {
+            suggestionsList.style("display", "none");
+            customInput.property("value", fullName(matches[0]));
+            showTree("custom", matches[0].id, activeStyle);
+          } else if (typeof showToast === "function") {
+            showToast("Please enter a valid clan member name.", "info");
+          }
+        });
+
+      // Global outside click handler to dismiss suggestions
+      if (typeof document !== "undefined") {
+        document.addEventListener("click", function(evt) {
+          if (customRootBox && customRootBox.node() && !customRootBox.node().contains(evt.target)) {
+            suggestionsList.style("display", "none");
+          }
+        });
+      }
+
+      // 4. Quick Reset to Clan Root Button (visible when a custom root is active)
+      if (!isPredefined) {
+        searchPanel.append("button")
+          .attr("type", "button")
+          .style("padding", "5px 10px")
+          .style("font-size", "0.7rem")
+          .style("font-weight", "800")
+          .style("background", "#fef3c7")
+          .style("color", "#92400e")
+          .style("border", "1px solid #fde68a")
+          .style("border-radius", "6px")
+          .style("cursor", "pointer")
+          .style("white-space", "nowrap")
+          .style("display", "inline-flex")
+          .style("align-items", "center")
+          .style("gap", "4px")
+          .html("⟲ All Clan (Ngowi I)")
+          .attr("title", "Reset tree back to founding clan progenitor (Ngowi I)")
+          .on("click", function() {
+            showTree("clan", "ngowi1", activeStyle);
+          });
+      }
+
+      // Quick Spouse Toggle Button in tree search bar
+      searchPanel.append("button")
+        .attr("type", "button")
+        .attr("class", "tree-search-spouse-btn")
+        .style("padding", "5px 10px")
+        .style("font-size", "0.7rem")
+        .style("font-weight", "800")
+        .style("background", showSpouseRecords ? "#ecfdf5" : "#f1f5f9")
+        .style("color", showSpouseRecords ? "#065f46" : "#475569")
+        .style("border", showSpouseRecords ? "1px solid #a7f3d0" : "1px solid #cbd5e1")
+        .style("border-radius", "6px")
+        .style("cursor", "pointer")
+        .style("white-space", "nowrap")
+        .style("display", "inline-flex")
+        .style("align-items", "center")
+        .style("gap", "4px")
+        .html(showSpouseRecords ? "💍 Spouses: Visible" : "💍 Spouses: Hidden")
+        .attr("title", "Toggle showing or hiding spouses in tree")
+        .on("click", function() {
+          toggleSpouses();
+        });
+    }
+    window.renderTreeCustomRootBar = renderTreeCustomRootBar;
+
+    function renderD3Tree(rootRecord, filterBranch, targetHighlightId, isBackgroundUpdate, preserveTransform) {
       var container = document.getElementById("treeCanvas");
       if (!container) return;
 
@@ -11152,74 +11923,11 @@ updateInviteLink();
         .attr("class", "d3-tree-container")
         .attr("id", "d3TreeWrapper");
 
-      // Search & Spotlight Panel
+      // Search & Spotlight Panel with Custom Root generator
       var searchPanel = wrapper.append("div")
         .attr("class", "d3-tree-search-panel");
 
-      searchPanel.append("span")
-        .style("font-size", "1rem")
-        .text("🔍");
-
-      var searchInput = searchPanel.append("input")
-        .attr("type", "search")
-        .attr("class", "d3-tree-search-input")
-        .attr("placeholder", "Search member in tree (e.g. Siara)...")
-        .attr("id", "d3TreeSearchInput")
-        .on("input", function() {
-          var val = this.value.trim().toLowerCase();
-          if (!val) {
-            d3.selectAll(".d3-node-group").classed("node-selected", false);
-            d3.selectAll(".d3-tree-link").classed("link-highlight", false);
-            return;
-          }
-          var matchNode = null;
-          d3Root.each(function(d) {
-            var matched = d.data.name.toLowerCase().indexOf(val) !== -1 ||
-                          (d.data.record && (d.data.record.phone || "").indexOf(val) !== -1) ||
-                          d.data.clanNumber.toLowerCase().indexOf(val) !== -1;
-            if (matched && !matchNode) matchNode = d;
-          });
-          if (matchNode) {
-            locateMemberInD3Tree(matchNode.data.id);
-          }
-        });
-
-      // Quick Root Switcher in Toolbar
-      var rootSelect = searchPanel.append("select")
-        .style("padding", "6px 8px")
-        .style("border", "1px solid var(--line)")
-        .style("border-radius", "6px")
-        .style("font-size", "0.72rem")
-        .style("font-weight", "800")
-        .style("background", "#fff")
-        .on("change", function() {
-          showTree("custom", this.value, "d3");
-        });
-
-      rootSelect.append("option")
-        .attr("value", "ngowi1")
-        .attr("selected", rootRecord.id === "ngowi1" ? true : null)
-        .text("👑 Clan Root (Ngowi I)");
-      rootSelect.append("option")
-        .attr("value", "siara")
-        .attr("selected", rootRecord.id === "siara" ? true : null)
-        .text("🌿 Siara Branch");
-      rootSelect.append("option")
-        .attr("value", "maina")
-        .attr("selected", rootRecord.id === "maina" ? true : null)
-        .text("🍂 Maina Branch");
-      rootSelect.append("option")
-        .attr("value", "josephMaliti")
-        .attr("selected", rootRecord.id === "josephMaliti" ? true : null)
-        .text("🏛️ Maliti Family");
-
-      var currentInSelect = ["ngowi1", "siara", "maina", "josephMaliti"].indexOf(rootRecord.id) !== -1;
-      if (!currentInSelect) {
-        rootSelect.append("option")
-          .attr("value", rootRecord.id)
-          .attr("selected", true)
-          .text("👤 " + fullName(rootRecord));
-      }
+      renderTreeCustomRootBar(searchPanel, rootRecord, "d3", locateMemberInD3Tree, d3Root);
 
       // SVG Canvas
       var svg = wrapper.append("svg")
@@ -11252,10 +11960,14 @@ updateInviteLink();
       // Node card dimensions
       var nodeWidth = isHorizontal ? 290 : 270;
       var nodeHeight = isHorizontal ? 96 : 102;
-      var dx = isHorizontal ? 130 : 290;
-      var dy = isHorizontal ? 320 : 140;
+      var dx = isHorizontal ? 150 : 380;
+      var dy = isHorizontal ? 420 : 150;
 
-      var treeLayout = d3.tree().nodeSize([dx, dy]);
+      var treeLayout = d3.tree().nodeSize([dx, dy]).separation(function(a, b) {
+        var aSp = showSpouseRecords && (a.data.spouse || findSpouseRecord(a.data.record));
+        var bSp = showSpouseRecords && (b.data.spouse || findSpouseRecord(b.data.record));
+        return (a.parent === b.parent ? (aSp || bSp ? 1.5 : 1.1) : (aSp || bSp ? 1.9 : 1.3));
+      });
 
       function updateTree(source, duration) {
         duration = duration !== undefined ? duration : 400;
@@ -11267,7 +11979,7 @@ updateInviteLink();
 
         // ------------------ LINKS ------------------
         var link = gLink.selectAll(".d3-tree-link")
-          .data(links, function(d) { return d.target.data.id; });
+          .data(links, function(d) { return d.target && d.target.data ? d.target.data.id : d.id; });
 
         var linkEnter = link.enter().append("path")
           .attr("class", function(d) {
@@ -11319,199 +12031,290 @@ updateInviteLink();
             var px = isHorizontal ? (source.y0 || 0) : (source.x0 || 0);
             var py = isHorizontal ? (source.x0 || 0) : (source.y0 || 0);
             return "translate(" + px + "," + py + ")";
-          })
-          .on("click", function(event, d) {
-            // If clicked on expand/collapse toggle
-            if (event.target && event.target.closest && event.target.closest(".d3-node-toggle-btn")) {
-              toggleNode(d);
-              return;
-            }
-            // Open member detail modal or profile
-            if (typeof openMemberDetailModal === "function") {
-              openMemberDetailModal(d.data.id);
-            } else {
-              openProfile(d.data.record);
-            }
           });
 
-        // Card Background - Explicit pure white fill and branch-colored stroke
-        nodeEnter.append("rect")
-          .attr("class", "d3-node-card-bg")
-          .attr("x", -nodeWidth / 2)
-          .attr("y", -nodeHeight / 2)
-          .attr("width", nodeWidth)
-          .attr("height", nodeHeight)
-          .attr("rx", 10)
-          .attr("ry", 10)
-          .attr("fill", function(d) { return getTreeBranchBg(d.data.branch); })
-          .attr("stroke", function(d) {
-            return getTreeBranchBorderColor(d.data.branch);
-          })
-          .attr("stroke-width", "2px");
+        var nodeMerged = node.merge(nodeEnter);
 
-        // Branch Left Accent Bar
-        nodeEnter.append("path")
-          .attr("d", "M " + (-nodeWidth/2) + " " + (-nodeHeight/2 + 10) + 
-                     " A 10 10 0 0 1 " + (-nodeWidth/2 + 10) + " " + (-nodeHeight/2) + 
-                     " L " + (-nodeWidth/2 + 10) + " " + (nodeHeight/2) + 
-                     " A 10 10 0 0 1 " + (-nodeWidth/2) + " " + (nodeHeight/2 - 10) + " Z")
-          .attr("fill", function(d) {
-            return getTreeBranchColor(d.data.branch);
-          });
-
-        // Round Member Picture / Empty Photo Placeholder
-        var avatarG = nodeEnter.append("g")
-          .attr("transform", "translate(" + (-nodeWidth/2 + 30) + ", 0)");
-
-        avatarG.each(function(d) {
+        nodeMerged.each(function(d) {
           var el = d3.select(this);
+          el.selectAll("*").remove();
           var rec = d.data.record || {};
-          var photoUrl = rec.photo && String(rec.photo).trim();
-          var b = d.data.branch;
+          var sp = (showSpouseRecords && typeof findSpouseRecord === "function") ? (d.data.spouse || findSpouseRecord(rec)) : (showSpouseRecords ? d.data.spouse : null);
+          var b = d.data.branch || "heritage";
           var strokeColor = getTreeBranchColor(b);
+          var borderColor = getTreeBranchBorderColor(b);
           var bgColor = getTreeBranchBg(b);
 
-          if (photoUrl) {
-            // Member HAS picture -> Insert picture in round frame
-            var clipId = "clip_d3_" + d.data.id.replace(/[^a-zA-Z0-9_-]/g, "_");
-            defs.append("clipPath")
-              .attr("id", clipId)
-              .append("circle")
-              .attr("cx", 0)
-              .attr("cy", 0)
-              .attr("r", 20);
+          if (sp) {
+            // =========================================================================
+            // DUAL COUPLE NODE: MEMBER (LEFT) + SPOUSE (RIGHT) SIDE BY SIDE
+            // =========================================================================
+            var cardW = 215;
+            var cardH = 92;
+            var gap = 30;
 
-            el.append("image")
-              .attr("href", photoUrl)
-              .attr("x", -20)
-              .attr("y", -20)
-              .attr("width", 40)
-              .attr("height", 40)
-              .attr("preserveAspectRatio", "xMidYMid slice")
-              .attr("clip-path", "url(#" + clipId + ")");
+            // 1. PRIMARY MEMBER CARD (LEFT)
+            var memG = el.append("g")
+              .attr("class", "couple-member-card")
+              .style("cursor", "pointer")
+              .on("click", function(event) {
+                event.stopPropagation();
+                if (typeof openMemberDetailModal === "function") openMemberDetailModal(d.data.id);
+                else openProfile(rec);
+              });
 
-            el.append("circle")
-              .attr("r", 20)
-              .attr("fill", "none")
-              .attr("stroke", strokeColor)
-              .attr("stroke-width", 2);
-          } else {
-            // Member HAS NO picture -> Leave empty round placeholder ready to add photo later
-            el.append("circle")
-              .attr("r", 20)
+            memG.append("rect")
+              .attr("class", "d3-node-card-bg")
+              .attr("x", -cardW - gap/2)
+              .attr("y", -cardH / 2)
+              .attr("width", cardW)
+              .attr("height", cardH)
+              .attr("rx", 10)
+              .attr("ry", 10)
               .attr("fill", bgColor)
-              .attr("stroke", strokeColor)
-              .attr("stroke-width", 1.8)
-              .attr("stroke-dasharray", "3,2");
+              .attr("stroke", borderColor)
+              .attr("stroke-width", "2px");
 
-            el.append("text")
-              .attr("text-anchor", "middle")
-              .attr("dy", "0.35em")
-              .attr("font-size", "11px")
+            // Left Branch Accent Strip
+            memG.append("path")
+              .attr("d", "M " + (-cardW - gap/2) + " " + (-cardH/2 + 10) + 
+                         " A 10 10 0 0 1 " + (-cardW - gap/2 + 10) + " " + (-cardH/2) + 
+                         " L " + (-cardW - gap/2 + 10) + " " + (cardH/2) + 
+                         " A 10 10 0 0 1 " + (-cardW - gap/2) + " " + (cardH/2 - 10) + " Z")
+              .attr("fill", strokeColor);
+
+            // Member Photo Avatar
+            var memCx = -cardW - gap/2 + 28;
+            renderNodeRoundAvatar(defs, memG, d, memCx, 0, 20, strokeColor, bgColor, "clip_m_");
+
+            // Member Name
+            var memTx = memCx + 28;
+            memG.append("text")
+              .attr("x", memTx)
+              .attr("y", -cardH/2 + 20)
+              .attr("font-size", function() { var len = (d.data.name || "").length; return len > 26 ? "10px" : "11px"; })
               .attr("font-weight", "900")
               .attr("fill", "#103d2b")
-              .text(initials(rec) || "👤");
+              .text(d.data.name);
 
-            // Small camera icon badge indicating photo placeholder
-            var badgeG = el.append("g").attr("transform", "translate(13, 13)");
-            badgeG.append("circle")
-              .attr("r", 6.5)
+            // Member Gen & Clan
+            memG.append("text")
+              .attr("x", memTx)
+              .attr("y", -cardH/2 + 36)
+              .attr("font-size", "9px")
+              .attr("font-weight", "700")
+              .attr("fill", "#64748b")
+              .text("Gen " + d.data.generation + " • " + (d.data.clanNumber || "Member"));
+
+            // Member Lifespan
+            memG.append("text")
+              .attr("x", memTx)
+              .attr("y", -cardH/2 + 52)
+              .attr("font-size", "9px")
+              .attr("font-weight", "800")
+              .attr("fill", "#334155")
+              .text(formatLifespanForNode(rec, d.data.isDeceased));
+
+            // Member Status
+            memG.append("text")
+              .attr("x", memTx)
+              .attr("y", -cardH/2 + 68)
+              .attr("font-size", "8.5px")
+              .attr("font-weight", "800")
+              .attr("fill", d.data.isDeceased ? "#94a3b8" : "#059669")
+              .text(d.data.isDeceased ? "🕊️ Deceased" : "🟢 Living");
+
+            // 2. CENTER MARRIAGE CONNECTOR (RINGS BADGE)
+            var ringG = el.append("g").attr("class", "couple-connector-rings");
+            ringG.append("line")
+              .attr("x1", -gap/2)
+              .attr("y1", 0)
+              .attr("x2", gap/2)
+              .attr("y2", 0)
+              .attr("stroke", "#e9bf52")
+              .attr("stroke-width", "2.5px");
+
+            ringG.append("circle")
+              .attr("cx", 0)
+              .attr("cy", 0)
+              .attr("r", 13)
               .attr("fill", "#ffffff")
-              .attr("stroke", strokeColor)
-              .attr("stroke-width", 1);
-            badgeG.append("text")
+              .attr("stroke", "#e9bf52")
+              .attr("stroke-width", "2px");
+
+            ringG.append("text")
+              .attr("x", 0)
+              .attr("y", 4)
               .attr("text-anchor", "middle")
-              .attr("dy", "0.35em")
-              .attr("font-size", "7px")
-              .text("📷");
+              .attr("font-size", "11px")
+              .text("💍");
+
+            // 3. SPOUSE CARD (RIGHT SIDE)
+            var spouseG = el.append("g")
+              .attr("class", "couple-spouse-card")
+              .style("cursor", "pointer")
+              .on("click", function(event) {
+                event.stopPropagation();
+                if (typeof openMemberDetailModal === "function") openMemberDetailModal(sp.id);
+                else openProfile(sp);
+              });
+
+            var spouseBranch = getMemberBranchKey(sp);
+            var spStrokeColor = getTreeBranchColor(spouseBranch);
+            var spBgColor = getTreeBranchBg(spouseBranch);
+
+            spouseG.append("rect")
+              .attr("x", gap/2)
+              .attr("y", -cardH / 2)
+              .attr("width", cardW)
+              .attr("height", cardH)
+              .attr("rx", 10)
+              .attr("ry", 10)
+              .attr("fill", spBgColor)
+              .attr("stroke", "#e9bf52")
+              .attr("stroke-width", "2px");
+
+            // Right Branch Accent Strip for Spouse
+            spouseG.append("path")
+              .attr("d", "M " + (gap/2 + cardW) + " " + (-cardH/2 + 10) + 
+                         " A 10 10 0 0 0 " + (gap/2 + cardW - 10) + " " + (-cardH/2) + 
+                         " L " + (gap/2 + cardW - 10) + " " + (cardH/2) + 
+                         " A 10 10 0 0 0 " + (gap/2 + cardW) + " " + (cardH/2 - 10) + " Z")
+              .attr("fill", "#e9bf52");
+
+            // Spouse Photo Avatar
+            var spCx = gap/2 + 28;
+            renderNodeRoundAvatar(defs, spouseG, { data: { id: sp.id, record: sp } }, spCx, 0, 20, spStrokeColor, spBgColor, "clip_sp_");
+
+            // Spouse Name
+            var spTx = spCx + 28;
+            var spName = fullName(sp);
+            spouseG.append("text")
+              .attr("x", spTx)
+              .attr("y", -cardH/2 + 20)
+              .attr("font-size", spName.length > 26 ? "10px" : "11px")
+              .attr("font-weight", "900")
+              .attr("fill", "#103d2b")
+              .text(spName);
+
+            // Spouse Badge Line
+            spouseG.append("text")
+              .attr("x", spTx)
+              .attr("y", -cardH/2 + 36)
+              .attr("font-size", "9px")
+              .attr("font-weight", "900")
+              .attr("fill", "#854d0e")
+              .text("💍 SPOUSE • " + generationLabel(sp));
+
+            // Spouse Lifespan
+            spouseG.append("text")
+              .attr("x", spTx)
+              .attr("y", -cardH/2 + 52)
+              .attr("font-size", "9px")
+              .attr("font-weight", "800")
+              .attr("fill", "#334155")
+              .text(lifespanText(sp));
+
+            // Spouse Status
+            var spDec = !!sp.deceased || !!sp.dod;
+            spouseG.append("text")
+              .attr("x", spTx)
+              .attr("y", -cardH/2 + 68)
+              .attr("font-size", "8.5px")
+              .attr("font-weight", "800")
+              .attr("fill", spDec ? "#94a3b8" : "#059669")
+              .text(spDec ? "🕊️ Deceased" : "🟢 Living");
+
+            // Expand/Collapse Pill Toggle Button (Centered below couple)
+            renderNodeCollapseToggle(el, d, 0, cardH/2, strokeColor);
+
+          } else {
+            // =========================================================================
+            // SINGLE MEMBER NODE (NO SPOUSE DISPLAYED)
+            // =========================================================================
+            var singleW = nodeWidth;
+            var singleH = nodeHeight;
+
+            var singleCardG = el.append("g")
+              .style("cursor", "pointer")
+              .on("click", function(event) {
+                if (event.target && event.target.closest && event.target.closest(".d3-node-toggle-btn")) {
+                  toggleNode(d);
+                  return;
+                }
+                event.stopPropagation();
+                if (typeof openMemberDetailModal === "function") openMemberDetailModal(d.data.id);
+                else openProfile(rec);
+              });
+
+            singleCardG.append("rect")
+              .attr("class", "d3-node-card-bg")
+              .attr("x", -singleW / 2)
+              .attr("y", -singleH / 2)
+              .attr("width", singleW)
+              .attr("height", singleH)
+              .attr("rx", 10)
+              .attr("ry", 10)
+              .attr("fill", bgColor)
+              .attr("stroke", borderColor)
+              .attr("stroke-width", "2px");
+
+            // Left Branch Accent Strip
+            singleCardG.append("path")
+              .attr("d", "M " + (-singleW/2) + " " + (-singleH/2 + 10) + 
+                         " A 10 10 0 0 1 " + (-singleW/2 + 10) + " " + (-singleH/2) + 
+                         " L " + (-singleW/2 + 10) + " " + (singleH/2) + 
+                         " A 10 10 0 0 1 " + (-singleW/2) + " " + (singleH/2 - 10) + " Z")
+              .attr("fill", strokeColor);
+
+            // Member Photo Avatar
+            var sCx = -singleW/2 + 30;
+            renderNodeRoundAvatar(defs, singleCardG, d, sCx, 0, 20, strokeColor, bgColor, "clip_s_");
+
+            // Member Name
+            var sTx = sCx + 28;
+            singleCardG.append("text")
+              .attr("x", sTx)
+              .attr("y", -singleH/2 + 20)
+              .attr("font-size", function() { var len = (d.data.name || "").length; return len > 32 ? "10px" : (len > 24 ? "11px" : "12px"); })
+              .attr("font-weight", "900")
+              .attr("fill", "#103d2b")
+              .text(d.data.name);
+
+            // Subtitle: Generation
+            singleCardG.append("text")
+              .attr("x", sTx)
+              .attr("y", -singleH/2 + 36)
+              .attr("font-size", "9.5px")
+              .attr("font-weight", "700")
+              .attr("fill", "#64748b")
+              .text("Generation " + d.data.generation + " • " + (d.data.clanNumber || "Member"));
+
+            // Dates
+            singleCardG.append("text")
+              .attr("x", sTx)
+              .attr("y", -singleH/2 + 52)
+              .attr("font-size", "9.5px")
+              .attr("font-weight", "800")
+              .attr("fill", "#334155")
+              .text(formatLifespanForNode(rec, d.data.isDeceased));
+
+            // Status Line
+            singleCardG.append("text")
+              .attr("x", sTx)
+              .attr("y", -singleH/2 + 68)
+              .attr("font-size", "9px")
+              .attr("font-weight", "800")
+              .attr("fill", d.data.isDeceased ? "#94a3b8" : "#059669")
+              .text(d.data.isDeceased ? "🕊️ Deceased Ancestor" : "🟢 Living Member");
+
+            // Expand/Collapse Pill Toggle Button
+            renderNodeCollapseToggle(el, d, isHorizontal ? (singleW/2 - 12) : 0, isHorizontal ? 0 : (singleH/2), strokeColor);
           }
         });
 
-        // Name Text - Never cut names! Make sure all three names appear in full on the node.
-        nodeEnter.append("text")
-          .attr("x", -nodeWidth/2 + 58)
-          .attr("y", -nodeHeight/2 + 20)
-          .attr("font-size", function(d) {
-            var len = (d.data.name || "").length;
-            if (len > 32) return "10px";
-            if (len > 24) return "11px";
-            return "12px";
-          })
-          .attr("font-weight", "900")
-          .attr("fill", "#103d2b")
-          .text(function(d) {
-            return d.data.name;
-          });
-
-        // Subtitle: Generation
-        nodeEnter.append("text")
-          .attr("x", -nodeWidth/2 + 58)
-          .attr("y", -nodeHeight/2 + 36)
-          .attr("font-size", "9.5px")
-          .attr("font-weight", "700")
-          .attr("fill", "#64748b")
-          .text(function(d) {
-            return "Generation " + d.data.generation + " • " + (d.data.clanNumber || "Member");
-          });
-
-        // Dates: 1977-2003 for deceased, 1977-living for living (placed just under Generation)
-        nodeEnter.append("text")
-          .attr("x", -nodeWidth/2 + 58)
-          .attr("y", -nodeHeight/2 + 52)
-          .attr("font-size", "9.5px")
-          .attr("font-weight", "800")
-          .attr("fill", "#334155")
-          .text(function(d) {
-            return formatLifespanForNode(d.data.record, d.data.isDeceased);
-          });
-
-        // Status Line
-        nodeEnter.append("text")
-          .attr("x", -nodeWidth/2 + 58)
-          .attr("y", -nodeHeight/2 + 68)
-          .attr("font-size", "9px")
-          .attr("font-weight", "800")
-          .attr("fill", function(d) { return d.data.isDeceased ? "#94a3b8" : "#059669"; })
-          .text(function(d) {
-            var rec = d.data.record || {};
-            if (d.data.isDeceased) {
-              return "🕊️ Deceased Ancestor";
-            }
-            if (d.data.spouse) return "💍 " + (d.data.spouse.firstName || fullName(d.data.spouse)) + " • 🟢 Living";
-            return "🟢 Living Member";
-          });
-
-        // Expand / Collapse Pill Button
-        var toggleG = nodeEnter.append("g")
-          .attr("class", "d3-node-toggle-btn")
-          .attr("transform", function() {
-            var tx = isHorizontal ? (nodeWidth/2 - 12) : 0;
-            var ty = isHorizontal ? 0 : (nodeHeight/2);
-            return "translate(" + tx + "," + ty + ")";
-          })
-          .style("cursor", "pointer")
-          .style("display", function(d) {
-            return (d.children || d._children || d.data.childrenCount > 0) ? "inline" : "none";
-          });
-
-        toggleG.append("circle")
-          .attr("r", 10)
-          .attr("fill", "#103d2b")
-          .attr("stroke", "#ffffff")
-          .attr("stroke-width", 2);
-
-        toggleG.append("text")
-          .attr("text-anchor", "middle")
-          .attr("dy", "0.35em")
-          .attr("font-size", "10px")
-          .attr("font-weight", "900")
-          .attr("fill", "#ffffff")
-          .text(function(d) {
-            return d._children ? "+" + (d._children.length || d.data.childrenCount) : (d.children ? "−" : "");
-          });
-
         // Transition Nodes to their new positions
-        var nodeUpdate = node.merge(nodeEnter).transition().duration(duration)
+        var nodeUpdate = nodeMerged.transition().duration(duration)
           .attr("transform", function(d) {
             var px = isHorizontal ? d.y : d.x;
             var py = isHorizontal ? d.x : d.y;
@@ -11670,14 +12473,22 @@ updateInviteLink();
         svg.transition().duration(500).call(zoom.transform, d3.zoomIdentity.translate(translate[0], translate[1]).scale(scale));
       }
 
-      // Initial Fit
-      setTimeout(function() {
-        if (targetHighlightId) {
-          locateMemberInD3Tree(targetHighlightId);
-        } else {
-          fitD3TreeToViewport();
-        }
-      }, 100);
+      // Initial Fit or Zero-Shake Camera Preservation
+      if (isBackgroundUpdate && preserveTransform) {
+        svg.call(zoom.transform, preserveTransform);
+        g.attr("transform", preserveTransform);
+      } else {
+        setTimeout(function() {
+          if (targetHighlightId) {
+            locateMemberInD3Tree(targetHighlightId);
+          } else if (isBackgroundUpdate && preserveTransform) {
+            svg.call(zoom.transform, preserveTransform);
+            g.attr("transform", preserveTransform);
+          } else {
+            fitD3TreeToViewport();
+          }
+        }, 100);
+      }
     }
 
     function locateMemberInD3Tree(memberId) {
@@ -12085,8 +12896,13 @@ updateInviteLink();
         .attr("font-weight", "800")
         .attr("fill", function(d) { return d.data.isDeceased ? "#94a3b8" : "#059669"; })
         .text(function(d) {
-          if (d.data.isDeceased) return "🕊️ Deceased Ancestor";
-          if (d.data.spouse) return "💍 " + (d.data.spouse.firstName || fullName(d.data.spouse)) + " • 🟢 Living";
+          var rec = d.data.record || {};
+          var sp = (showSpouseRecords && typeof findSpouseRecord === "function") ? (d.data.spouse || findSpouseRecord(rec)) : (showSpouseRecords ? d.data.spouse : null);
+          var spName = sp ? (sp.firstName || fullName(sp)) : "";
+          if (d.data.isDeceased) {
+            return sp ? ("💍 " + spName + " • 🕊️ Deceased") : "🕊️ Deceased Ancestor";
+          }
+          if (sp) return "💍 " + spName + " • 🟢 Living";
           return "🟢 Living Member";
         });
     }
@@ -12122,66 +12938,9 @@ updateInviteLink();
 
     // Shared Controls: Search & Floating Action Toolbar
     function createTreeCommonControls(wrapper, d3Root, rootRecord, activeStyle, svg, zoom, containerWidth, containerHeight, onUpdate, onMatch) {
-      // Top Search Panel
+      // Top Search, Root Selector & Custom Member Root Panel
       var searchPanel = wrapper.append("div").attr("class", "d3-tree-search-panel");
-      searchPanel.append("span").style("font-size", "1rem").text("🔍");
-      searchPanel.append("input")
-        .attr("type", "search")
-        .attr("class", "d3-tree-search-input")
-        .attr("placeholder", "Search member in tree...")
-        .on("input", function() {
-          var val = this.value.trim().toLowerCase();
-          if (!val) {
-            d3.selectAll(".d3-node-group").classed("node-selected", false);
-            d3.selectAll(".d3-tree-link").classed("link-highlight", false);
-            return;
-          }
-          var matchNode = null;
-          d3Root.each(function(d) {
-            var matched = (d.data.name && d.data.name.toLowerCase().indexOf(val) !== -1) ||
-                          (d.data.record && (d.data.record.phone || "").indexOf(val) !== -1) ||
-                          (d.data.clanNumber && d.data.clanNumber.toLowerCase().indexOf(val) !== -1);
-            if (matched && !matchNode) matchNode = d;
-          });
-          if (matchNode && typeof onMatch === "function") {
-            onMatch(matchNode);
-          }
-        });
-
-      var rootSelect = searchPanel.append("select")
-        .style("padding", "6px 8px")
-        .style("border", "1px solid var(--line)")
-        .style("border-radius", "6px")
-        .style("font-size", "0.72rem")
-        .style("font-weight", "800")
-        .style("background", "#fff")
-        .on("change", function() {
-          showTree("custom", this.value, activeStyle);
-        });
-
-      rootSelect.append("option")
-        .attr("value", "ngowi1")
-        .attr("selected", rootRecord.id === "ngowi1" ? true : null)
-        .text("👑 Clan Root (Ngowi I)");
-      rootSelect.append("option")
-        .attr("value", "siara")
-        .attr("selected", rootRecord.id === "siara" ? true : null)
-        .text("🌿 Siara Branch");
-      rootSelect.append("option")
-        .attr("value", "maina")
-        .attr("selected", rootRecord.id === "maina" ? true : null)
-        .text("🍂 Maina Branch");
-      rootSelect.append("option")
-        .attr("value", "josephMaliti")
-        .attr("selected", rootRecord.id === "josephMaliti" ? true : null)
-        .text("🏛️ Maliti Family");
-
-      if (["ngowi1", "siara", "maina", "josephMaliti"].indexOf(rootRecord.id) === -1) {
-        rootSelect.append("option")
-          .attr("value", rootRecord.id)
-          .attr("selected", true)
-          .text("👤 " + fullName(rootRecord));
-      }
+      renderTreeCustomRootBar(searchPanel, rootRecord, activeStyle, onMatch, d3Root);
 
       // Bottom Floating Toolbar
       var floatingToolbar = wrapper.append("div")
@@ -12253,6 +13012,16 @@ updateInviteLink();
           });
           if (typeof onUpdate === "function") onUpdate(d3Root, 400);
           setTimeout(fitTreeToWidth, 450);
+        });
+
+      floatingToolbar.append("button")
+        .attr("type", "button")
+        .attr("class", "d3-floating-btn")
+        .attr("id", "floatingSpouseToggleBtn")
+        .html(showSpouseRecords ? "💍 Hide Spouses" : "💍 Show Spouses")
+        .attr("title", "Toggle Spouses Visibility")
+        .on("click", function() {
+          toggleSpouses();
         });
     }
 
@@ -12629,7 +13398,16 @@ updateInviteLink();
             .attr("font-size", "9px")
             .attr("font-weight", "800")
             .attr("fill", d.data.isDeceased ? "#94a3b8" : "#059669")
-            .text(d.data.isDeceased ? "🕊️ Deceased Ancestor" : "🟢 Living Member");
+            .text(function() {
+              var rec = d.data.record || {};
+              var sp = (showSpouseRecords && typeof findSpouseRecord === "function") ? (d.data.spouse || findSpouseRecord(rec)) : (showSpouseRecords ? d.data.spouse : null);
+              var spName = sp ? (sp.firstName || fullName(sp)) : "";
+              if (d.data.isDeceased) {
+                return sp ? ("💍 " + spName + " • 🕊️ Deceased") : "🕊️ Deceased Ancestor";
+              }
+              if (sp) return "💍 " + spName + " • 🟢 Living";
+              return "🟢 Living Member";
+            });
         });
 
         // Collapsible Toggle Button (Bottom Center)
@@ -13167,7 +13945,16 @@ updateInviteLink();
             })
             .attr("font-weight", "900")
             .attr("fill", "#0f3827")
-            .text(function() { return d.data.name; });
+            .text(function() {
+              var n = d.data.name || "";
+              var rec = d.data.record || {};
+              var sp = (showSpouseRecords && typeof findSpouseRecord === "function") ? (d.data.spouse || findSpouseRecord(rec)) : (showSpouseRecords ? d.data.spouse : null);
+              if (sp) {
+                var spName = sp.firstName || fullName(sp);
+                return n + " & " + spName;
+              }
+              return n;
+            });
 
           // Generation and Lifespan Dates directly under name
           textG.append("text")
@@ -13354,35 +14141,135 @@ updateInviteLink();
             else openProfile(d.data.record);
           });
 
-        // Luminous White Card with Branch Colored Glowing Frame
-        nodeEnter.append("rect")
-          .attr("class", "d3-node-card-bg")
-          .attr("x", -nodeW / 2)
-          .attr("y", -nodeH / 2)
-          .attr("width", nodeW)
-          .attr("height", nodeH)
-          .attr("rx", 14)
-          .attr("ry", 14)
-          .attr("fill", function(d) { return getTreeBranchBg(d.data.branch); })
-          .attr("stroke", function(d) { return getTreeBranchColor(d.data.branch); })
-          .attr("stroke-width", "2px")
-          .attr("filter", "url(#constellationGlow)");
-
-        // Round Avatar & Text with Branch Theme
+        // Luminous White Card with Branch Colored Glowing Frame or Dual Couple Card
         nodeEnter.each(function(d) {
           var el = d3.select(this);
-          var b = d.data.branch;
+          el.selectAll("*").remove();
+          var rec = d.data.record || {};
+          var sp = (typeof findSpouseRecord === "function") ? (d.data.spouse || findSpouseRecord(rec)) : d.data.spouse;
+          var b = d.data.branch || "heritage";
           var strokeC = getTreeBranchColor(b);
+          var borderColor = strokeC;
           var bgC = getTreeBranchBg(b);
-          var cx = -nodeW / 2 + 35, cy = 0;
-          renderNodeRoundAvatar(defs, el, d, cx, cy, 22, strokeC, bgC, "clip_cst_");
-          renderNodeStandardText(el, d, cx + 34, nodeH, strokeC, "#0f3827", strokeC);
-        });
 
-        // Branch Collapsible Toggle Button
-        nodeEnter.each(function(d) {
-          var el = d3.select(this);
-          renderNodeCollapseToggle(el, d, 0, nodeH / 2, getTreeBranchColor(d.data.branch));
+          if (sp) {
+            // Dual Couple Node: Member (Left) + Spouse (Right) side by side with rings
+            var cardW = 215;
+            var cardH = nodeH;
+            var gap = 30;
+
+            // 1. Primary Member Card (Left)
+            var memG = el.append("g")
+              .attr("class", "couple-member-card")
+              .style("cursor", "pointer")
+              .on("click", function(event) {
+                event.stopPropagation();
+                if (typeof openMemberDetailModal === "function") openMemberDetailModal(d.data.id);
+                else openProfile(rec);
+              });
+
+            memG.append("rect")
+              .attr("class", "d3-node-card-bg")
+              .attr("x", -cardW - gap/2)
+              .attr("y", -cardH / 2)
+              .attr("width", cardW)
+              .attr("height", cardH)
+              .attr("rx", 14)
+              .attr("ry", 14)
+              .attr("fill", bgC)
+              .attr("stroke", strokeC)
+              .attr("stroke-width", "2px")
+              .attr("filter", "url(#constellationGlow)");
+
+            memG.append("path")
+              .attr("d", "M " + (-cardW - gap/2) + " " + (-cardH/2 + 14) + 
+                         " A 14 14 0 0 1 " + (-cardW - gap/2 + 14) + " " + (-cardH/2) + 
+                         " L " + (-cardW - gap/2 + 14) + " " + (cardH/2) + 
+                         " A 14 14 0 0 1 " + (-cardW - gap/2) + " " + (cardH/2 - 14) + " Z")
+              .attr("fill", strokeC);
+
+            var memCx = -cardW - gap/2 + 30;
+            renderNodeRoundAvatar(defs, memG, d, memCx, 0, 20, strokeC, bgC, "clip_cst_m_");
+
+            var memTx = memCx + 28;
+            memG.append("text").attr("x", memTx).attr("y", -cardH/2 + 20).attr("font-size", "11px").attr("font-weight", "900").attr("fill", "#0f3827").text(d.data.name);
+            memG.append("text").attr("x", memTx).attr("y", -cardH/2 + 36).attr("font-size", "9.5px").attr("font-weight", "700").attr("fill", "#64748b").text("Gen " + d.data.generation + " • " + (d.data.clanNumber || "Member"));
+            memG.append("text").attr("x", memTx).attr("y", -cardH/2 + 52).attr("font-size", "9px").attr("font-weight", "800").attr("fill", "#334155").text(formatLifespanForNode(rec, d.data.isDeceased));
+            memG.append("text").attr("x", memTx).attr("y", -cardH/2 + 68).attr("font-size", "8.5px").attr("font-weight", "800").attr("fill", d.data.isDeceased ? "#94a3b8" : "#059669").text(d.data.isDeceased ? "🕊️ Deceased" : "🟢 Living");
+
+            // 2. Center Marriage Connector (Rings Badge)
+            var ringG = el.append("g").attr("class", "couple-connector-rings");
+            ringG.append("line").attr("x1", -gap/2).attr("y1", 0).attr("x2", gap/2).attr("y2", 0).attr("stroke", "#e9bf52").attr("stroke-width", "2.5px");
+            ringG.append("circle").attr("cx", 0).attr("cy", 0).attr("r", 13).attr("fill", "#ffffff").attr("stroke", "#e9bf52").attr("stroke-width", "2px");
+            ringG.append("text").attr("x", 0).attr("y", 4).attr("text-anchor", "middle").attr("font-size", "11px").text("💍");
+
+            // 3. Spouse Card (Right Side)
+            var spouseG = el.append("g")
+              .attr("class", "couple-spouse-card")
+              .style("cursor", "pointer")
+              .on("click", function(event) {
+                event.stopPropagation();
+                if (typeof openMemberDetailModal === "function") openMemberDetailModal(sp.id);
+                else openProfile(sp);
+              });
+
+            var spBranch = (sp.branchType || b).toLowerCase();
+            var spStrokeC = getTreeBranchColor(spBranch);
+            var spBgC = getTreeBranchBg(spBranch);
+
+            spouseG.append("rect")
+              .attr("x", gap/2)
+              .attr("y", -cardH / 2)
+              .attr("width", cardW)
+              .attr("height", cardH)
+              .attr("rx", 14)
+              .attr("ry", 14)
+              .attr("fill", spBgC)
+              .attr("stroke", "#e9bf52")
+              .attr("stroke-width", "2px")
+              .attr("filter", "url(#constellationGlow)");
+
+            spouseG.append("path")
+              .attr("d", "M " + (gap/2 + cardW) + " " + (-cardH/2 + 14) + 
+                         " A 14 14 0 0 0 " + (gap/2 + cardW - 14) + " " + (-cardH/2) + 
+                         " L " + (gap/2 + cardW - 14) + " " + (cardH/2) + 
+                         " A 14 14 0 0 0 " + (gap/2 + cardW) + " " + (cardH/2 - 14) + " Z")
+              .attr("fill", "#e9bf52");
+
+            var spCx = gap/2 + 30;
+            renderNodeRoundAvatar(defs, spouseG, { data: { id: sp.id, record: sp } }, spCx, 0, 20, spStrokeC, spBgC, "clip_cst_sp_");
+
+            var spTx = spCx + 28;
+            var spName = fullName(sp);
+            var spDec = !!sp.deceased || !!sp.dod;
+            spouseG.append("text").attr("x", spTx).attr("y", -cardH/2 + 20).attr("font-size", "11px").attr("font-weight", "900").attr("fill", "#0f3827").text(spName);
+            spouseG.append("text").attr("x", spTx).attr("y", -cardH/2 + 36).attr("font-size", "9px").attr("font-weight", "900").attr("fill", "#854d0e").text("💍 SPOUSE • " + generationLabel(sp));
+            spouseG.append("text").attr("x", spTx).attr("y", -cardH/2 + 52).attr("font-size", "9px").attr("font-weight", "800").attr("fill", "#334155").text(lifespanText(sp));
+            spouseG.append("text").attr("x", spTx).attr("y", -cardH/2 + 68).attr("font-size", "8.5px").attr("font-weight", "800").attr("fill", spDec ? "#94a3b8" : "#059669").text(spDec ? "🕊️ Deceased" : "🟢 Living");
+
+            renderNodeCollapseToggle(el, d, 0, cardH / 2, strokeC);
+
+          } else {
+            // Single Member Node
+            el.append("rect")
+              .attr("class", "d3-node-card-bg")
+              .attr("x", -nodeW / 2)
+              .attr("y", -nodeH / 2)
+              .attr("width", nodeW)
+              .attr("height", nodeH)
+              .attr("rx", 14)
+              .attr("ry", 14)
+              .attr("fill", bgC)
+              .attr("stroke", strokeC)
+              .attr("stroke-width", "2px")
+              .attr("filter", "url(#constellationGlow)");
+
+            var cx = -nodeW / 2 + 35, cy = 0;
+            renderNodeRoundAvatar(defs, el, d, cx, cy, 22, strokeC, bgC, "clip_cst_");
+            renderNodeStandardText(el, d, cx + 34, nodeH, strokeC, "#0f3827", strokeC);
+
+            renderNodeCollapseToggle(el, d, 0, nodeH / 2, strokeC);
+          }
         });
 
         var nodeUpdate = node.merge(nodeEnter).transition().duration(duration)
@@ -13455,24 +14342,33 @@ updateInviteLink();
       "classical-constellation": { name: "✨ 7. Luminous Heritage Constellation Matrix", is3d: false, desc: "Bespoke Visual Design / Celestial Golden Glow Glass Matrix" }
     };
 
-    function showTree(type, selectedRootId, visualMode) {
+    function showTree(type, selectedRootId, visualMode, isBackgroundUpdate, preserveTransform) {
       document.getElementById("treeMenu").classList.remove("open");
-      document.getElementById("cataloguePage").classList.remove("active");
-      document.getElementById("statisticsPage").classList.remove("active");
-      var mapPage = document.getElementById("mapPage");
-      if (mapPage) mapPage.classList.remove("active");
-      var growthPage = document.getElementById("growthPage");
-      if (growthPage) growthPage.classList.remove("active");
-      document.getElementById("treePage").classList.add("active");
-      if (typeof updateMobileNavActive === "function") updateMobileNavActive(1);
+      if (!isBackgroundUpdate) {
+        document.getElementById("cataloguePage").classList.remove("active");
+        document.getElementById("statisticsPage").classList.remove("active");
+        var mapPage = document.getElementById("mapPage");
+        if (mapPage) mapPage.classList.remove("active");
+        var growthPage = document.getElementById("growthPage");
+        if (growthPage) growthPage.classList.remove("active");
+        document.getElementById("treePage").classList.add("active");
+        if (typeof updateMobileNavActive === "function") updateMobileNavActive(1);
+      }
 
       window.currentTreeType = type || window.currentTreeType || "clan";
-      window.currentTreeRoot = selectedRootId || window.currentTreeRoot || "";
-      var rootId = selectedRootId || window.currentTreeRoot || "ngowi1";
+      var rootId = "ngowi1";
       var filter = "";
       var title = "SiaraMaina Clan Tree";
 
-      if (type === "siara") {
+      if (type === "clan") {
+        rootId = selectedRootId || "ngowi1";
+        filter = "";
+        title = "SiaraMaina Clan Tree";
+      } else if (type === "heritage") {
+        rootId = selectedRootId || "ngowi1";
+        filter = "";
+        title = "Foundational Ancestry Tree";
+      } else if (type === "siara") {
         rootId = "siara";
         filter = "siara";
         title = "Siara Branch Family Tree";
@@ -13491,13 +14387,18 @@ updateInviteLink();
         rootId = masakiMember ? masakiMember.id : "member-1788457645229";
         filter = "masaki";
         title = "Masaki Branch Family Tree";
-      } else if (type === "heritage") {
-        rootId = "ngowi1";
-        filter = "heritage";
-        title = "Foundational Ancestry Tree";
       } else if (type === "custom") {
-        title = "Custom Family Tree View";
+        rootId = selectedRootId || window.currentTreeRoot || "ngowi1";
+        filter = "";
+        var customRec = findRecord(rootId);
+        var customSp = (showSpouseRecords && typeof findSpouseRecord === "function") ? findSpouseRecord(customRec) : null;
+        title = customRec ? ("Family Tree: " + fullName(customRec) + (customSp ? (" & " + fullName(customSp)) : "") + " & Descendants") : "Custom Family Tree View";
+      } else {
+        rootId = selectedRootId || window.currentTreeRoot || "ngowi1";
       }
+
+      rootId = (typeof extractMemberRefId === "function") ? extractMemberRefId(rootId) : rootId;
+      window.currentTreeRoot = rootId;
 
       var root = findRecord(rootId) || (getUniqueRecords() && getUniqueRecords()[0]) || null;
       if (!root) {
@@ -13505,6 +14406,10 @@ updateInviteLink();
         return;
       }
 
+      if (type === "custom" && root) {
+        var rootSp = (showSpouseRecords && typeof findSpouseRecord === "function") ? findSpouseRecord(root) : null;
+        title = "Family Tree: " + fullName(root) + (rootSp ? (" & " + fullName(rootSp)) : "") + " & Descendants";
+      }
       document.getElementById("treeTitle").textContent = title;
 
       var activeStyle = normalizeTreeStyle(visualMode || window.currentFamilyTreeStyle || window.currentVisualTreeMode || "classical-collapsible");
@@ -13523,8 +14428,12 @@ updateInviteLink();
       var layoutBtnText = currentLayout === "horizontal" ? "Switch to Vertical Layout" : "Switch to Horizontal Layout";
       var treeContainerClass = currentLayout === "horizontal" ? "classical-tree horizontal" : "classical-tree";
 
-      // Render Responsive Toolbar & Viewport Shell
-      document.getElementById("treeWorkspace").innerHTML = `
+      var existingCanvas = document.getElementById("treeCanvas");
+      var hasTreeDOM = !!existingCanvas && !!document.getElementById("treeViewport");
+
+      // Render Responsive Toolbar & Viewport Shell ONLY when opening fresh or when DOM shell missing
+      if (!hasTreeDOM || !isBackgroundUpdate) {
+        document.getElementById("treeWorkspace").innerHTML = `
         <div class="tree-tools" style="display:flex;flex-direction:column;gap:10px;background:#ffffff;padding:12px 16px;border-radius:12px;border:1px solid var(--line);box-shadow:0 2px 8px rgba(4,31,20,0.04);margin-bottom:12px;">
           <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
             <div style="display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;">
@@ -13544,13 +14453,14 @@ updateInviteLink();
             </div>
             <div style="display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;margin-left:auto;">
               <label for="treeBranchFilterSelect" style="font-size:0.8rem;font-weight:800;color:var(--muted);">Branch Scope:</label>
-              <select id="treeBranchFilterSelect" onchange="showTree(this.value)" style="padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:#fff;font-weight:700;font-size:0.8rem;color:var(--forest);min-height:38px;">
+              <select id="treeBranchFilterSelect" onchange="if(this.value==='custom'){ openCustomTree(); } else { showTree(this.value); }" style="padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:#fff;font-weight:700;font-size:0.8rem;color:var(--forest);min-height:38px;">
                 <option value="clan" ${type==="clan"?"selected":""}>All Clan (Ngowi I Root)</option>
                 <option value="heritage" ${type==="heritage"?"selected":""}>👑 Foundational Ancestry</option>
                 <option value="siara" ${type==="siara"?"selected":""}>🌿 Siara Branch</option>
                 <option value="maina" ${type==="maina"?"selected":""}>🌹 Maina Branch</option>
                 <option value="maliti" ${type==="maliti"?"selected":""}>🏛️ Maliti Family</option>
                 <option value="masaki" ${type==="masaki"?"selected":""}>🟣 Masaki Branch</option>
+                <option value="custom" ${type==="custom"?"selected":""}>🔍 Custom Member Root${type==="custom" && root ? (" (" + fullName(root) + ")") : ""}</option>
               </select>
             </div>
           </div>
@@ -13563,6 +14473,7 @@ updateInviteLink();
               <button class="button primary" type="button" onclick="fitTreeToWidth()" style="min-height:36px;padding:6px 14px;" title="Fit View to Screen">🔍 Fit to Screen</button>
               <button class="button secondary" type="button" onclick="toggleTreeLayout()" style="min-height:36px;padding:6px 12px;" title="Toggle Orientation">${layoutBtnText}</button>
               <button class="button secondary" type="button" onclick="toggleTreeFullscreen()" style="min-height:36px;padding:6px 12px;" title="Toggle Fullscreen">🖥️ Fullscreen</button>
+              <button id="treeToolbarSpouseToggle" class="button secondary" type="button" onclick="toggleSpouses()" style="min-height:36px;padding:6px 12px;" title="Toggle Spouses Visibility">${showSpouseRecords ? "Hide Spouses" : "Show Spouses"}</button>
             </div>
             <div class="tree-export" style="margin:0;display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;">
               <select id="treeExportFormat" style="padding:6px 8px;border:1px solid var(--line);border-radius:6px;font-size:0.75rem;min-height:36px;">
@@ -13582,33 +14493,41 @@ updateInviteLink();
           <div id="treeCanvas" class="tree-canvas" style="width:100%;height:100%;position:relative;"></div>
         </div>
       `;
+      }
 
-      // Always perform clean lifecycle tear-down before mounting new style
-      if (typeof window.cleanupCurrentTreeRenderer === "function") {
+      // Perform lifecycle clean up if changing styles
+      if (!isBackgroundUpdate && typeof window.cleanupCurrentTreeRenderer === "function") {
         window.cleanupCurrentTreeRenderer();
       }
 
-      // Dispatch to one of the 7 distinct, working classical family-tree styles
+      // Dispatch to one of the 7 distinct, working classical family-tree styles with preservation support
       if (activeStyle === "classical-collapsible") {
-        renderD3Tree(root, filter, selectedRootId);
+        renderD3Tree(root, filter, selectedRootId, isBackgroundUpdate, preserveTransform);
       } else if (activeStyle === "classical-rounded") {
-        renderClassicalRoundedTree(root, filter, selectedRootId);
+        if (window._familyTreeStyles && window._familyTreeStyles.rounded) window._familyTreeStyles.rounded(root, filter, selectedRootId, isBackgroundUpdate, preserveTransform);
+        else renderClassicalRoundedTree(root, filter, selectedRootId, isBackgroundUpdate, preserveTransform);
       } else if (activeStyle === "classical-square") {
-        renderClassicalSquareTree(root, filter, selectedRootId);
+        if (window._familyTreeStyles && window._familyTreeStyles.square) window._familyTreeStyles.square(root, filter, selectedRootId, isBackgroundUpdate, preserveTransform);
+        else renderClassicalSquareTree(root, filter, selectedRootId, isBackgroundUpdate, preserveTransform);
       } else if (activeStyle === "classical-compact") {
-        renderClassicalCompactTree(root, filter, selectedRootId);
+        if (window._familyTreeStyles && window._familyTreeStyles.compact) window._familyTreeStyles.compact(root, filter, selectedRootId, isBackgroundUpdate, preserveTransform);
+        else renderClassicalCompactTree(root, filter, selectedRootId, isBackgroundUpdate, preserveTransform);
       } else if (activeStyle === "classical-ltr") {
-        renderClassicalLtrTree(root, filter, selectedRootId);
+        if (window._familyTreeStyles && window._familyTreeStyles.ltr) window._familyTreeStyles.ltr(root, filter, selectedRootId, isBackgroundUpdate, preserveTransform);
+        else renderClassicalLtrTree(root, filter, selectedRootId, isBackgroundUpdate, preserveTransform);
       } else if (activeStyle === "classical-radial") {
-        renderClassicalRadialTree(root, filter, selectedRootId);
+        if (window._familyTreeStyles && window._familyTreeStyles.radial) window._familyTreeStyles.radial(root, filter, selectedRootId, isBackgroundUpdate, preserveTransform);
+        else renderClassicalRadialTree(root, filter, selectedRootId, isBackgroundUpdate, preserveTransform);
       } else if (activeStyle === "classical-constellation") {
-        renderClassicalConstellationTree(root, filter, selectedRootId);
+        renderClassicalConstellationTree(root, filter, selectedRootId, isBackgroundUpdate, preserveTransform);
       } else {
-        renderD3Tree(root, filter, selectedRootId);
+        renderD3Tree(root, filter, selectedRootId, isBackgroundUpdate, preserveTransform);
       }
 
-      resetTreeZoom();
-      window.scrollTo(0, 0);
+      if (!isBackgroundUpdate) {
+        resetTreeZoom();
+        window.scrollTo(0, 0);
+      }
     }
     window.showTree = showTree;
 
@@ -15397,12 +16316,34 @@ openPrintDialog();
       showCatalogue(currentFilter);
     }
 
+    function syncSpouseToggleButtons() {
+      var toggleText = showSpouseRecords ? "Hide Spouses" : "Show Spouses";
+      var el1 = document.getElementById("spouseToggle");
+      if (el1) el1.textContent = toggleText;
+      var el2 = document.getElementById("treeToolbarSpouseToggle");
+      if (el2) el2.textContent = toggleText;
+      var el3 = document.getElementById("floatingSpouseToggleBtn");
+      if (el3) el3.innerHTML = showSpouseRecords ? "💍 Hide Spouses" : "💍 Show Spouses";
+      var el4 = document.querySelector(".tree-search-spouse-btn");
+      if (el4) el4.innerHTML = showSpouseRecords ? "💍 Spouses: Visible" : "💍 Spouses: Hidden";
+    }
+    window.syncSpouseToggleButtons = syncSpouseToggleButtons;
+
     function toggleSpouses() {
       showSpouseRecords = !showSpouseRecords;
-      document.getElementById("spouseToggle").textContent = showSpouseRecords ? "Hide Spouses" : "Show Spouses";
+      syncSpouseToggleButtons();
       saveStoredSettings();
+
+      // Clear caches so tree re-evaluates spouses completely
+      if (typeof _d3HierarchyCache !== "undefined" && _d3HierarchyCache && typeof _d3HierarchyCache.clear === "function") {
+        _d3HierarchyCache.clear();
+      }
+      if (typeof _classicalTreeCache !== "undefined" && _classicalTreeCache && typeof _classicalTreeCache.clear === "function") {
+        _classicalTreeCache.clear();
+      }
+
       if (document.getElementById("treePage").classList.contains("active")) {
-        showTree(window.currentTreeType || "clan", window.currentTreeRoot);
+        showTree(window.currentTreeType || "clan", window.currentTreeRoot, window.currentFamilyTreeStyle || window.currentVisualTreeMode || "classical-collapsible");
       } else if (document.getElementById("cataloguePage").classList.contains("active")) {
         showCatalogue(currentFilter);
       }
@@ -15772,7 +16713,11 @@ updateAgeFields();
           console.warn("[saveProfile] cloudFirestoreSaveMember notice:", cfsErr);
         }
       }
-      if (typeof window.pushMemberToGoogleWebApp === "function") {
+      if (typeof window.scheduleDebouncedGoogleSheetsSync === "function") {
+        try {
+          window.scheduleDebouncedGoogleSheetsSync(record, 3000);
+        } catch(gsPushErr) {}
+      } else if (typeof window.pushMemberToGoogleWebApp === "function") {
         try {
           window.pushMemberToGoogleWebApp(record);
         } catch(gsPushErr) {}
@@ -15829,113 +16774,94 @@ updateAgeFields();
         return;
       }
 
-      if (!confirm("Delete " + fullName(record) + "?")) return;
-      if (typeof window.markLocalDataMutation === "function") window.markLocalDataMutation();
-      window._recentSaveProfileToast = Date.now();
+      var displayName = fullName(record);
 
-      var delBtn = document.getElementById("deleteButton");
-      var originalBtnText = delBtn ? delBtn.textContent : "Delete Profile";
-      if (delBtn) {
-        delBtn.disabled = true;
-        delBtn.textContent = "⏳ Deleting...";
-      }
+      showDeleteConfirmation(
+        "Confirm Permanent Deletion",
+        "Are you sure you want to permanently delete " + displayName + "? This action cannot be undone and will immediately remove the profile from active views, Cloud Firestore, and Google Sheets.",
+        async function() {
+          if (typeof window.markLocalDataMutation === "function") window.markLocalDataMutation();
+          window._recentSaveProfileToast = Date.now();
 
-      try {
-        if (typeof addPersistentDeletedId === "function") {
-          addPersistentDeletedId(id, record ? record.email : "", record ? record.clanMemberNumber : "", record ? record.firstName : "", record ? record.lastName : "");
-        }
-        window._recentlyDeletedMemberIds = window._recentlyDeletedMemberIds || new Set();
-        window._recentlyDeletedMemberIds.add(id);
-        if (record && record.clanMemberNumber) window._recentlyDeletedMemberIds.add(record.clanMemberNumber);
-
-        records = records.filter(function(item) {
-          return item && item.id !== id && item.recordId !== id;
-        });
-
-        if (typeof recordClanMutation === "function") {
-          recordClanMutation(id, "DELETE", record);
-        }
-
-        records.forEach(function(item) {
-          if (item.fatherId === id) item.fatherId = "";
-          if (item.motherId === id) item.motherId = "";
-          if (item.spouseId === id) item.spouseId = "";
-          if (Array.isArray(item.siblingIds)) item.siblingIds = item.siblingIds.filter(function(siblingId) { return siblingId !== id; });
-        });
-
-        saveRecords(true);
-
-        if (typeof window.cloudFirestoreDeleteMember === "function") {
-          try {
-            await window.cloudFirestoreDeleteMember(id, records);
-          } catch(cfdErr) {
-            console.warn("[deleteProfile] cloudFirestoreDeleteMember notice:", cfdErr);
+          // 1. Immediately record persistent deletion
+          if (typeof addPersistentDeletedId === "function") {
+            addPersistentDeletedId(id, record ? record.email : "", record ? record.clanMemberNumber : "", record ? record.firstName : "", record ? record.lastName : "");
           }
-        }
-        if (typeof window.deleteMemberFromGoogleWebApp === "function") {
-          try {
-            await window.deleteMemberFromGoogleWebApp(id, record ? record.email : "", fullName(record), record);
-          } catch(e) {
-            console.warn("[deleteProfile] Google Sheet delete notice:", e);
-          }
-        }
-        if (typeof window.GoogleSheetsDB !== "undefined" && typeof window.GoogleSheetsDB.deleteMember === "function") {
-          try { await window.GoogleSheetsDB.deleteMember(id, record ? record.email : ""); } catch(e) {}
-        }
+          window._recentlyDeletedMemberIds = window._recentlyDeletedMemberIds || new Set();
+          window._recentlyDeletedMemberIds.add(id);
+          if (record && record.clanMemberNumber) window._recentlyDeletedMemberIds.add(record.clanMemberNumber);
 
-        var backendUrl = typeof getBackendBaseUrl === "function" ? getBackendBaseUrl() : "";
-        if (backendUrl) {
-          try {
-            var token = localStorage.getItem("siara_session_token") || sessionStorage.getItem("siara_session_token") || "";
-            if (typeof auth !== "undefined" && auth && auth.currentUser) {
-              try { token = await auth.currentUser.getIdToken(); } catch(e) {}
+          // 2. Remove from local array and unlink relations
+          records = records.filter(function(item) {
+            return item && item.id !== id && item.recordId !== id;
+          });
+
+          if (typeof recordClanMutation === "function") {
+            recordClanMutation(id, "DELETE", record);
+          }
+
+          records.forEach(function(item) {
+            if (item.fatherId === id) item.fatherId = "";
+            if (item.motherId === id) item.motherId = "";
+            if (item.spouseId === id) item.spouseId = "";
+            if (Array.isArray(item.siblingIds)) item.siblingIds = item.siblingIds.filter(function(siblingId) { return siblingId !== id; });
+          });
+
+          saveRecords(true);
+
+          // 3. Immediately close profile modal and refresh active views (0ms UI latency)
+          closeModal("profileModal");
+          if (typeof updateMetrics === "function") {
+            updateMetrics();
+          }
+          if (typeof refreshActiveClanViews === "function") {
+            refreshActiveClanViews(true);
+          } else {
+            showCatalogue("all");
+          }
+          if (window._clanSyncChannel) {
+            try {
+              window._clanSyncChannel.postMessage({
+                type: "RECORDS_MUTATED",
+                records: records,
+                timestamp: new Date().toISOString()
+              });
+            } catch(bcErr) {}
+          }
+          if (typeof showToast === "function") {
+            showToast("🗑️ Member profile deleted permanently.", "success");
+          }
+
+          // 4. Asynchronously sync deletion to Cloud Firestore, Express Backend, and Google Sheets in background
+          (async function() {
+            if (typeof window.cloudFirestoreDeleteMember === "function") {
+              try { await window.cloudFirestoreDeleteMember(id, records); } catch(cfdErr) {}
             }
-            var delHeaders = { "Accept": "application/json", "Content-Type": "application/json" };
-            if (token) delHeaders["Authorization"] = "Bearer " + token;
-            await fetch(getBackendApiUrl("/api/members?id=" + encodeURIComponent(id) + "&permanent=true"), {
-              method: "DELETE",
-              headers: delHeaders
-            });
-          } catch(e) {
-            console.warn("[deleteProfile] Backend sync notice:", e);
-          }
-        }
+            if (typeof window.deleteMemberFromGoogleWebApp === "function") {
+              try { await window.deleteMemberFromGoogleWebApp(id, record ? record.email : "", displayName, record); } catch(e) {}
+            }
+            if (typeof window.GoogleSheetsDB !== "undefined" && typeof window.GoogleSheetsDB.writeAllMembers === "function") {
+              try { await window.GoogleSheetsDB.writeAllMembers(records); } catch(e) {}
+            }
 
-        if (window._clanSyncChannel) {
-          try {
-            window._clanSyncChannel.postMessage({
-              type: "RECORDS_MUTATED",
-              records: records,
-              timestamp: new Date().toISOString()
-            });
-          } catch(bcErr) {}
+            var backendUrl = typeof getBackendBaseUrl === "function" ? getBackendBaseUrl() : "";
+            if (backendUrl) {
+              try {
+                var token = localStorage.getItem("siara_session_token") || sessionStorage.getItem("siara_session_token") || "";
+                if (typeof auth !== "undefined" && auth && auth.currentUser) {
+                  try { token = await auth.currentUser.getIdToken(); } catch(e) {}
+                }
+                var delHeaders = { "Accept": "application/json", "Content-Type": "application/json" };
+                if (token) delHeaders["Authorization"] = "Bearer " + token;
+                await fetch(getBackendApiUrl("/api/members?id=" + encodeURIComponent(id) + "&permanent=true"), {
+                  method: "DELETE",
+                  headers: delHeaders
+                });
+              } catch(e) {}
+            }
+          })();
         }
-
-        closeModal("profileModal");
-        if (typeof updateMetrics === "function") {
-          updateMetrics();
-        }
-        if (typeof refreshActiveClanViews === "function") {
-          refreshActiveClanViews(true);
-        } else {
-          showCatalogue("all");
-        }
-        if (typeof showToast === "function") {
-          showToast("✅ Member deleted successfully from Cloud Firestore!", "success");
-        }
-      } catch (err) {
-        console.error("[deleteProfile] Error:", err);
-        var errMessage = err.message || "Failed to delete profile.";
-        if (errMessage.includes("Failed to fetch")) {
-          errMessage = "Network error: Unable to reach remote server. Please check your internet connection.";
-        }
-        alert("Could not delete profile:\n\n" + errMessage);
-      } finally {
-        if (delBtn) {
-          delBtn.disabled = false;
-          delBtn.textContent = originalBtnText;
-        }
-      }
+      );
     }
 
     async function deleteAllRecords() {
@@ -16611,7 +17537,9 @@ var preview = document.getElementById("photoPreview");
         }
       }, 250);
 
-      window.scrollTo(0, 0);
+      if (!window._isBackgroundViewRefresh) {
+        window.scrollTo(0, 0);
+      }
     }
 
     function getCoordinatesForLocation(r) {
@@ -17283,7 +18211,9 @@ var preview = document.getElementById("photoPreview");
 
       setTimeout(renderAgeDistributionChart, 50);
 
-      window.scrollTo(0, 0);
+      if (!window._isBackgroundViewRefresh) {
+        window.scrollTo(0, 0);
+      }
     }
 
     // =========================================================================
@@ -17315,7 +18245,9 @@ var preview = document.getElementById("photoPreview");
       if (growthPage) growthPage.classList.add("active");
 
       renderGrowthChart(window.currentGrowthChartMode || "cumulative");
-      window.scrollTo(0, 0);
+      if (!window._isBackgroundViewRefresh) {
+        window.scrollTo(0, 0);
+      }
     }
 
     function renderGrowthChart(mode) {
@@ -21843,12 +22775,15 @@ document.getElementById("printModal").classList.add("open");
                       var es = new EventSource(sseUrl);
                       window._sseStream = es;
                       es.addEventListener("doc_change", function(ev) {
+                        console.log("[RealtimeSync] Received doc_change event:", ev.data);
                         try {
                           var p = JSON.parse(ev.data);
                           syncListeners.forEach(function(fn) {
                             try { fn("doc_change", p); } catch(ex){}
                           });
-                        } catch(e) {}
+                        } catch(e) {
+                          console.error("[RealtimeSync] Error parsing doc_change:", e);
+                        }
                       });
                       es.addEventListener("user_registered", function(ev) {
                         try {
@@ -21980,17 +22915,39 @@ document.getElementById("printModal").classList.add("open");
         }
       }
 
-      // Global helper to instantly refresh whichever view or page is active (Debounced for high-FPS mobile performance)
+      // Global helper to instantly refresh whichever view or page is active without view shake or scroll jump
       var _refreshClanViewsTimeout = null;
-      window._lastRenderedRecordsSignature = window._lastRenderedRecordsSignature || "";
-      function refreshActiveClanViews(immediate) {
-        var sig = (records || []).length + "-" + ((records && records.length > 0) ? (records[0].id + records[0].firstName) : "") + "-" + ((records && records.length > 1) ? (records[records.length-1].id + records[records.length-1].firstName) : "");
-        if (!immediate && window._lastRenderedRecordsSignature === sig) {
-          return; // Skip redundant re-render to prevent shaking/flickering!
-        }
-        window._lastRenderedRecordsSignature = sig;
+      window._lastRenderedRecordsFingerprint = window._lastRenderedRecordsFingerprint || "";
 
-        var currentScrollY = window.scrollY || window.pageYOffset;
+      function computeClanRecordsFingerprint(recs) {
+        if (!Array.isArray(recs)) return "0";
+        var len = recs.length;
+        var sum = 0;
+        for (var i = 0; i < len; i++) {
+          var r = recs[i];
+          if (r) {
+            var piece = (r.id || "") + ":" + (r.updatedAt || r.lastModified || "") + ":" + (r.firstName || "") + ":" + (r.lastName || "") + ":" + (r.clanMemberNumber || "") + ":" + (r.fatherId || "") + ":" + (r.motherId || "") + ":" + (r.spouseId || "");
+            for (var j = 0; j < piece.length; j++) {
+              sum = ((sum << 5) - sum + piece.charCodeAt(j)) | 0;
+            }
+          }
+        }
+        return len + "_" + sum.toString(36);
+      }
+
+      function refreshActiveClanViews(immediate, force) {
+        var recs = records || [];
+        var fingerprint = computeClanRecordsFingerprint(recs);
+        if (window._lastRenderedRecordsFingerprint === fingerprint && !force) {
+          return; // Skip redundant re-render to completely eliminate shaking & flickering!
+        }
+        window._lastRenderedRecordsFingerprint = fingerprint;
+
+        // If user is actively typing in an input or a form modal is active, defer view refresh to prevent typing disruption
+        if (document.activeElement && (document.activeElement.tagName === "INPUT" || document.activeElement.tagName === "TEXTAREA" || document.activeElement.tagName === "SELECT")) {
+          return;
+        }
+
         var selectedIds = [];
         try {
           if (typeof getSelectedMemberIds === "function") {
@@ -22004,6 +22961,36 @@ document.getElementById("printModal").classList.add("open");
         }
 
         var runRender = function() {
+          var savedScrollX = window.scrollX || window.pageXOffset || 0;
+          var savedScrollY = window.scrollY || window.pageYOffset || 0;
+
+          // Lock container min-heights during DOM replacement to prevent browser scroll collapse & shake
+          var catWorkspace = document.getElementById("catalogueWorkspace");
+          var prevCatMinHeight = catWorkspace ? catWorkspace.style.minHeight : "";
+          if (catWorkspace && catWorkspace.clientHeight > 0) {
+            catWorkspace.style.minHeight = catWorkspace.clientHeight + "px";
+          }
+          var prevBodyMinHeight = document.body.style.minHeight;
+          if (document.documentElement.scrollHeight > 0) {
+            document.body.style.minHeight = Math.max(document.documentElement.scrollHeight, window.innerHeight) + "px";
+          }
+
+          var scrollStates = [];
+          try {
+            var targets = document.querySelectorAll('.app-main, main, .workspace, .shell, #app, #cataloguePage, #catalogueWorkspace, #lineViewContainer, .table-responsive, #treePage, #treeWorkspace, #treeViewport, #mapPage, #statisticsPage, #growthPage');
+            targets.forEach(function(el) {
+              if (el) {
+                scrollStates.push({ el: el, id: el.id, className: el.className, top: el.scrollTop, left: el.scrollLeft });
+              }
+            });
+            document.querySelectorAll('*').forEach(function(el) {
+              if ((el.scrollTop > 0 || el.scrollLeft > 0) && !scrollStates.some(function(s) { return s.el === el; })) {
+                scrollStates.push({ el: el, id: el.id, className: el.className, top: el.scrollTop, left: el.scrollLeft });
+              }
+            });
+          } catch(e) {}
+
+          window._isBackgroundViewRefresh = true;
           try {
             if (typeof rebuildRecordIndexes === "function" && _recordIndexMap.size !== (records || []).length) {
               rebuildRecordIndexes();
@@ -22020,8 +23007,12 @@ document.getElementById("printModal").classList.add("open");
               if (typeof showCatalogue === "function") showCatalogue(currentFilter || "all");
             }
             if (treePage && treePage.classList.contains("active")) {
-              if (typeof showTree === "function") showTree(window.currentTreeType || "clan", window.currentTreeRoot, window.currentVisualTreeMode || "d3");
-              else if (typeof renderD3Tree === "function") renderD3Tree();
+              var prevTreeTransform = window.d3TreeZoomTransform || (window.d3TreeSvgInstance && typeof d3 !== "undefined" && d3.zoomTransform(window.d3TreeSvgInstance.svg.node()));
+              if (typeof showTree === "function") {
+                showTree(window.currentTreeType || "clan", window.currentTreeRoot, window.currentVisualTreeMode || "d3", true, prevTreeTransform);
+              } else if (typeof renderD3Tree === "function") {
+                renderD3Tree(null, null, null, true, prevTreeTransform);
+              }
             }
             if (mapPage && mapPage.classList.contains("active")) {
               if (typeof renderClanMap === "function") renderClanMap();
@@ -22044,9 +23035,35 @@ document.getElementById("printModal").classList.add("open");
               });
               if (typeof updateSelectedCount === "function") updateSelectedCount();
             }
-            window.scrollTo(0, currentScrollY);
           } catch(renderErr) {
             console.warn("[Sync] View refresh notice:", renderErr);
+          } finally {
+            window._isBackgroundViewRefresh = false;
+            window.scrollTo({ left: savedScrollX, top: savedScrollY, behavior: "instant" });
+            scrollStates.forEach(function(item) {
+              if (item.el) {
+                try {
+                  item.el.scrollTop = item.top;
+                  item.el.scrollLeft = item.left;
+                } catch(e) {}
+              }
+              if (item.id) {
+                var freshEl = document.getElementById(item.id);
+                if (freshEl) {
+                  try {
+                    freshEl.scrollTop = item.top;
+                    freshEl.scrollLeft = item.left;
+                  } catch(e) {}
+                }
+              }
+            });
+
+            // Unlock temporary min-heights after paint frame
+            requestAnimationFrame(function() {
+              document.body.style.minHeight = prevBodyMinHeight;
+              if (catWorkspace) catWorkspace.style.minHeight = prevCatMinHeight;
+              window.scrollTo({ left: savedScrollX, top: savedScrollY, behavior: "instant" });
+            });
           }
         };
 
@@ -22059,7 +23076,7 @@ document.getElementById("printModal").classList.add("open");
             } else {
               runRender();
             }
-          }, 80);
+          }, 120);
         }
       }
       window.refreshActiveClanViews = refreshActiveClanViews;
@@ -24064,12 +25081,16 @@ document.getElementById("printModal").classList.add("open");
       }
     };
     window.GoogleSheetsDB.saveMember = async function(member) {
-      if (typeof window.pushMemberToGoogleWebApp === "function") {
+      if (typeof window.scheduleDebouncedGoogleSheetsSync === "function") {
+        return window.scheduleDebouncedGoogleSheetsSync(member, 3000);
+      } else if (typeof window.pushMemberToGoogleWebApp === "function") {
         return await window.pushMemberToGoogleWebApp(member);
       }
     };
     window.GoogleSheetsDB.writeAllMembers = async function(recordsList) {
-      if (typeof window.pushMemberToGoogleWebApp === "function") {
+      if (typeof window.scheduleDebouncedGoogleSheetsSync === "function") {
+        return window.scheduleDebouncedGoogleSheetsSync(recordsList || records, 3000);
+      } else if (typeof window.pushMemberToGoogleWebApp === "function") {
         return await window.pushMemberToGoogleWebApp(recordsList || records);
       }
     };
@@ -24139,11 +25160,127 @@ document.getElementById("printModal").classList.add("open");
     }
   };
   window._sheetsAutoSyncTimer = null;
+  window._sheetsSyncDebounceTimer = null;
+  window._pendingDebouncedMembersToPush = new Map();
+
+  window.scheduleDebouncedGoogleSheetsSync = function(memberOrMembers, delayMs) {
+    var delay = typeof delayMs === "number" ? delayMs : 3000;
+
+    if (memberOrMembers) {
+      var arr = Array.isArray(memberOrMembers) ? memberOrMembers : [memberOrMembers];
+      arr.forEach(function(m) {
+        if (m && typeof m === "object") {
+          var key = m.id || m.recordId || m.clanMemberNumber || ((m.firstName || "") + "_" + (m.lastName || ""));
+          if (key) window._pendingDebouncedMembersToPush.set(key, m);
+        }
+      });
+    }
+
+    if (window._sheetsSyncDebounceTimer) {
+      clearTimeout(window._sheetsSyncDebounceTimer);
+    }
+
+    // Only set a debounce timer if there are actual member changes to flush
+    if (window._pendingDebouncedMembersToPush.size === 0) {
+      return;
+    }
+
+    window._sheetsSyncDebounceTimer = setTimeout(async function() {
+      window._sheetsSyncDebounceTimer = null;
+
+      if (window.isSheetsAutoSyncPaused && window.isSheetsAutoSyncPaused()) {
+        console.log("[Google Sheets Debounce] Auto-sync is currently paused. Clearing pending push queue.");
+        window._pendingDebouncedMembersToPush.clear();
+        return;
+      }
+
+      // Flush any aggregated pending member edits in a single API call after 3s inactivity
+      if (window._pendingDebouncedMembersToPush.size > 0) {
+        var membersToPush = Array.from(window._pendingDebouncedMembersToPush.values());
+        window._pendingDebouncedMembersToPush.clear();
+        console.log("[Google Sheets Debounce] 3s inactivity threshold reached. Flushing " + membersToPush.length + " aggregated edit(s) to Google Sheets.");
+        if (typeof window.pushMemberToGoogleWebApp === "function") {
+          try {
+            await window.pushMemberToGoogleWebApp(membersToPush.length === 1 ? membersToPush[0] : membersToPush);
+          } catch(err) {
+            console.warn("[Google Sheets Debounce] Push notice:", err);
+          }
+        }
+      }
+    }, delay);
+  };
+
+  window.triggerSheetsAutoSyncDebounced = function(memberOrMembers) {
+    window.scheduleDebouncedGoogleSheetsSync(memberOrMembers, 3000);
+  };
+
+  window.isSheetsAutoSyncPaused = function() {
+    return localStorage.getItem("siara_sheets_autosync_paused") === "true";
+  };
+
+  window.toggleSheetsAutoSync = function() {
+    var currentlyPaused = window.isSheetsAutoSyncPaused();
+    var newPausedState = !currentlyPaused;
+    localStorage.setItem("siara_sheets_autosync_paused", newPausedState ? "true" : "false");
+    window.updateSheetsAutoSyncUI();
+    if (newPausedState) {
+      if (typeof showToast === "function") showToast("⏸️ Google Sheets automatic synchronization paused.", "info");
+    } else {
+      if (typeof showToast === "function") showToast("▶️ Google Sheets automatic synchronization resumed.", "success");
+      if (typeof window.startAutomaticGoogleSheetsSync === "function") {
+        window.startAutomaticGoogleSheetsSync();
+      }
+    }
+  };
+
+  window.updateSheetsAutoSyncUI = function() {
+    var isPaused = window.isSheetsAutoSyncPaused();
+    var toggleBtn = document.getElementById("toggleAutoSyncBtn");
+    var statusBadge = document.getElementById("autoSyncStatusBadge");
+    var statusDesc = document.getElementById("autoSyncStatusDesc");
+    if (toggleBtn) {
+      if (isPaused) {
+        toggleBtn.innerHTML = "▶️ Resume Automatic Sync";
+        toggleBtn.style.background = "#059669";
+        toggleBtn.style.color = "#ffffff";
+        toggleBtn.style.borderColor = "#10b981";
+      } else {
+        toggleBtn.innerHTML = "⏸️ Pause Automatic Sync";
+        toggleBtn.style.background = "#d97706";
+        toggleBtn.style.color = "#ffffff";
+        toggleBtn.style.borderColor = "#b45309";
+      }
+    }
+    if (statusBadge) {
+      if (isPaused) {
+        statusBadge.innerHTML = "⏸️ Auto-Sync Paused";
+        statusBadge.style.background = "#fef3c7";
+        statusBadge.style.color = "#92400e";
+        statusBadge.style.borderColor = "#fde68a";
+      } else {
+        statusBadge.innerHTML = "🟢 Change-Triggered Sync Active (3m Check | Immediate on Edit)";
+        statusBadge.style.background = "#ecfdf5";
+        statusBadge.style.color = "#065f46";
+        statusBadge.style.borderColor = "#a7f3d0";
+      }
+    }
+    if (statusDesc) {
+      if (isPaused) {
+        statusDesc.textContent = "Automatic background synchronization with Google Sheets is paused. No background requests are sent.";
+      } else {
+        statusDesc.textContent = "Sync triggers only when genuine changes occur in the app or Google Sheets, conserving data and preserving view stability.";
+      }
+    }
+  };
+
   window.startAutomaticGoogleSheetsSync = function() {
     if (window._sheetsAutoSyncTimer) clearInterval(window._sheetsAutoSyncTimer);
 
     async function doSilentSync() {
-      if (window._isSyncingFromSheet || (window._lastSheetSyncTimestamp && (Date.now() - window._lastSheetSyncTimestamp) < 1200)) {
+      if (window.isSheetsAutoSyncPaused && window.isSheetsAutoSyncPaused()) {
+        return;
+      }
+      if (window._isSyncingFromSheet) {
         return;
       }
       var url = localStorage.getItem("siara_google_sheet_url") || localStorage.getItem("siara_google_webapp_url") || (typeof getGoogleWebAppUrl === "function" ? getGoogleWebAppUrl() : "");
@@ -24155,27 +25292,25 @@ document.getElementById("printModal").classList.add("open");
       }
     }
 
-    // High-frequency background auto-sync interval (every 3 seconds) for immediate reflection
-    window._sheetsAutoSyncTimer = setInterval(doSilentSync, 3000);
+    // Background auto-sync check interval (every 15 seconds) with payload checksum diffing to conserve data
+    window._sheetsAutoSyncTimer = setInterval(doSilentSync, 15000);
 
-    // Auto-sync immediately when tab/window receives focus, becomes visible, or pointer enters
-    window.addEventListener("focus", function() {
-      setTimeout(doSilentSync, 50);
-    });
-    document.addEventListener("visibilitychange", function() {
-      if (document.visibilityState === "visible") {
-        setTimeout(doSilentSync, 50);
+    // Only flush when reconnecting online IF there were pending changes queued while offline
+    window.addEventListener("online", function() {
+      if (window._pendingDebouncedMembersToPush && window._pendingDebouncedMembersToPush.size > 0 && !window.isSheetsAutoSyncPaused()) {
+        window.scheduleDebouncedGoogleSheetsSync(null, 2000);
       }
     });
-    window.addEventListener("online", function() {
-      setTimeout(doSilentSync, 100);
-    });
-    document.addEventListener("mouseenter", function() {
-      setTimeout(doSilentSync, 100);
-    });
 
-    // Run initial background sync immediately
-    setTimeout(doSilentSync, 500);
+    // Run one initial background check on startup after 4 seconds of inactivity if connected
+    if (!window.isSheetsAutoSyncPaused()) {
+      setTimeout(function() {
+        var url = localStorage.getItem("siara_google_sheet_url") || localStorage.getItem("siara_google_webapp_url") || "";
+        if (url && typeof syncFromGoogleSheetUrl === "function") {
+          syncFromGoogleSheetUrl({ silent: true }).catch(function() {});
+        }
+      }, 4000);
+    }
   };
 
   window.addEventListener("DOMContentLoaded", async function() {
@@ -24366,6 +25501,15 @@ document.getElementById("printModal").classList.add("open");
       button.textContent = 'Subscribe';
     }
   });
+
+  const provisionForm = document.getElementById('provisionUserForm');
+  if (provisionForm) {
+    provisionForm.addEventListener('submit', function(event) {
+      if (typeof window.handleProvisionUser === 'function') {
+        window.handleProvisionUser(event);
+      }
+    });
+  }
 
   trackVisitor(window.location.pathname).catch(function(error) {
     console.warn('Visitor tracking failed:', error);
@@ -24621,6 +25765,14 @@ document.getElementById("printModal").classList.add("open");
     if (typeof renderGenerationMatrix === "function") window.renderGenerationMatrix = renderGenerationMatrix;
     if (typeof renderInterBranchHierarchyChart === "function") window.renderInterBranchHierarchyChart = renderInterBranchHierarchyChart;
     if (typeof getBranchColor === "function") window.getBranchColor = getBranchColor;
+    if (typeof syncSpouseToggleButtons === "function") {
+      window.syncSpouseToggleButtons = syncSpouseToggleButtons;
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", syncSpouseToggleButtons);
+      } else {
+        syncSpouseToggleButtons();
+      }
+    }
   </script>
 
   <!-- Touch-Ergonomic Mobile Bottom Navigation Bar -->

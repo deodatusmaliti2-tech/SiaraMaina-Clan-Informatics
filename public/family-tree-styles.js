@@ -217,211 +217,262 @@
     var togglePos = options.togglePosition || "bottom"; // "bottom" | "right"
     var clipPrefix = options.clipPrefix || "style";
 
-    // 1. Card Background - Pure white fill with 2px branch-colored border stroke
-    nodeEnter.append("rect")
-      .attr("class", "d3-node-card-bg")
-      .attr("x", -nodeWidth / 2)
-      .attr("y", -nodeHeight / 2)
-      .attr("width", nodeWidth)
-      .attr("height", nodeHeight)
-      .attr("rx", rx)
-      .attr("ry", ry)
-      .attr("fill", function(d) {
-        return getCardData(d).branch.bg;
-      })
-      .attr("stroke", function(d) {
-        return getCardData(d).branch.stroke;
-      })
-      .attr("stroke-width", "2px")
-      .style("filter", "drop-shadow(0 3px 8px rgba(0,0,0,0.06))");
-
-    // 2. Branch Left Accent Bar
-    nodeEnter.append("path")
-      .attr("d", function(d) {
-        var r = Math.min(rx, 10);
-        return "M " + (-nodeWidth/2) + " " + (-nodeHeight/2 + r) + 
-               " A " + r + " " + r + " 0 0 1 " + (-nodeWidth/2 + r) + " " + (-nodeHeight/2) + 
-               " L " + (-nodeWidth/2 + 8) + " " + (-nodeHeight/2) + 
-               " L " + (-nodeWidth/2 + 8) + " " + (nodeHeight/2) + 
-               " L " + (-nodeWidth/2 + r) + " " + (nodeHeight/2) + 
-               " A " + r + " " + r + " 0 0 1 " + (-nodeWidth/2) + " " + (nodeHeight/2 - r) + " Z";
-      })
-      .attr("fill", function(d) {
-        return getCardData(d).branch.accent;
-      });
-
-    // Optional top header strip for square style
-    if (options.hasSquareHeaderStrip) {
-      nodeEnter.append("path")
-        .attr("d", function(d) {
-          return "M " + (-nodeWidth/2) + " " + (-nodeHeight/2 + 4) +
-                 " A 4 4 0 0 1 " + (-nodeWidth/2 + 4) + " " + (-nodeHeight/2) +
-                 " L " + (nodeWidth/2 - 4) + " " + (-nodeHeight/2) +
-                 " A 4 4 0 0 1 " + (nodeWidth/2) + " " + (-nodeHeight/2 + 4) +
-                 " L " + (nodeWidth/2) + " " + (-nodeHeight/2 + 18) +
-                 " L " + (-nodeWidth/2) + " " + (-nodeHeight/2 + 18) + " Z";
-        })
-        .attr("fill", function(d) {
-          return getCardData(d).branch.accent;
-        });
-
-      nodeEnter.append("text")
-        .attr("x", -nodeWidth/2 + 12)
-        .attr("y", -nodeHeight/2 + 13)
-        .attr("fill", "#ffffff")
-        .attr("font-size", "9.5px")
-        .attr("font-weight", "800")
-        .text(function(d) {
-          var data = getCardData(d);
-          return data.branch.label + " • " + data.genText;
-        });
-    }
-
-    // 3. Round Member Picture / Empty Photo Placeholder
-    var avatarG = nodeEnter.append("g")
-      .attr("transform", "translate(" + (-nodeWidth/2 + 32) + ", " + (options.hasSquareHeaderStrip ? 10 : 0) + ")");
-
-    avatarG.each(function(d) {
+    nodeEnter.each(function(d) {
       var el = d3.select(this);
+      el.selectAll("*").remove();
       var data = getCardData(d);
+      var rec = (d && d.data && d.data.record) ? d.data.record : {};
+      var sp = (typeof window.findSpouseRecord === "function") ? (d.data.spouse || window.findSpouseRecord(rec)) : d.data.spouse;
 
-      if (data.photoUrl) {
-        // Member HAS photo -> SVG image clipped in round frame
-        var cleanId = String(d.data.id).replace(/[^a-zA-Z0-9_-]/g, "_");
-        var clipId = "clip_" + clipPrefix + "_" + cleanId;
-        defs.append("clipPath")
-          .attr("id", clipId)
-          .append("circle")
-          .attr("cx", 0)
-          .attr("cy", 0)
-          .attr("r", 20);
+      if (sp) {
+        // =========================================================================
+        // DUAL COUPLE NODE: MEMBER (LEFT) + SPOUSE (RIGHT) SIDE BY SIDE WITH RINGS
+        // =========================================================================
+        var cardW = 215;
+        var cardH = nodeHeight;
+        var gap = 30;
 
-        el.append("image")
-          .attr("href", data.photoUrl)
-          .attr("x", -20)
-          .attr("y", -20)
-          .attr("width", 40)
-          .attr("height", 40)
-          .attr("preserveAspectRatio", "xMidYMid slice")
-          .attr("clip-path", "url(#" + clipId + ")");
+        // 1. PRIMARY MEMBER CARD (LEFT)
+        var memG = el.append("g")
+          .attr("class", "couple-member-card")
+          .style("cursor", "pointer")
+          .on("click", function(event) {
+            event.stopPropagation();
+            if (typeof triggerMemberProfile === "function") triggerMemberProfile(d);
+          });
 
-        el.append("circle")
-          .attr("r", 20)
-          .attr("fill", "none")
-          .attr("stroke", data.branch.ring)
-          .attr("stroke-width", 2);
-      } else {
-        // Member HAS NO photo -> Empty round placeholder ready for photo
-        el.append("circle")
-          .attr("r", 20)
+        memG.append("rect")
+          .attr("class", "d3-node-card-bg")
+          .attr("x", -cardW - gap/2)
+          .attr("y", -cardH / 2)
+          .attr("width", cardW)
+          .attr("height", cardH)
+          .attr("rx", rx)
+          .attr("ry", ry)
           .attr("fill", data.branch.bg)
-          .attr("stroke", data.branch.ring)
-          .attr("stroke-width", 1.8)
-          .attr("stroke-dasharray", "3,2");
+          .attr("stroke", data.branch.stroke)
+          .attr("stroke-width", "2px")
+          .style("filter", "drop-shadow(0 3px 8px rgba(0,0,0,0.06))");
 
-        el.append("text")
-          .attr("text-anchor", "middle")
-          .attr("dy", "0.35em")
-          .attr("font-size", "11px")
-          .attr("font-weight", "900")
-          .attr("fill", "#103d2b")
-          .text(data.initials);
+        // Left Branch Accent Strip
+        memG.append("path")
+          .attr("d", "M " + (-cardW - gap/2) + " " + (-cardH/2 + rx) + 
+                     " A " + rx + " " + rx + " 0 0 1 " + (-cardW - gap/2 + rx) + " " + (-cardH/2) + 
+                     " L " + (-cardW - gap/2 + 8) + " " + (-cardH/2) + 
+                     " L " + (-cardW - gap/2 + 8) + " " + (cardH/2) + 
+                     " L " + (-cardW - gap/2 + rx) + " " + (cardH/2) + 
+                     " A " + rx + " " + rx + " 0 0 1 " + (-cardW - gap/2) + " " + (cardH/2 - rx) + " Z")
+          .attr("fill", data.branch.accent);
 
-        // Small camera icon badge indicating photo placeholder
-        var badgeG = el.append("g").attr("transform", "translate(13, 13)");
-        badgeG.append("circle")
-          .attr("r", 6.5)
-          .attr("fill", "#ffffff")
-          .attr("stroke", data.branch.ring)
-          .attr("stroke-width", 1);
+        // Member Avatar
+        var memCx = -cardW - gap/2 + 28;
+        var avatarG = memG.append("g").attr("transform", "translate(" + memCx + ", 0)");
+        if (data.photoUrl) {
+          var cleanId = String(d.data.id).replace(/[^a-zA-Z0-9_-]/g, "_");
+          var clipId = "clip_" + clipPrefix + "_m_" + cleanId;
+          defs.append("clipPath").attr("id", clipId).append("circle").attr("cx", 0).attr("cy", 0).attr("r", 20);
+          avatarG.append("image")
+            .attr("href", data.photoUrl)
+            .attr("x", -20).attr("y", -20).attr("width", 40).attr("height", 40)
+            .attr("preserveAspectRatio", "xMidYMid slice")
+            .attr("clip-path", "url(#" + clipId + ")");
+          avatarG.append("circle").attr("r", 20).attr("fill", "none").attr("stroke", data.branch.ring).attr("stroke-width", 2);
+        } else {
+          avatarG.append("circle").attr("r", 20).attr("fill", data.branch.bg).attr("stroke", data.branch.ring).attr("stroke-width", 1.8).attr("stroke-dasharray", "3,2");
+          avatarG.append("text").attr("text-anchor", "middle").attr("dy", "0.35em").attr("font-size", "11px").attr("font-weight", "900").attr("fill", "#103d2b").text(data.initials);
+        }
 
-        badgeG.append("text")
-          .attr("text-anchor", "middle")
-          .attr("dy", "0.35em")
-          .attr("font-size", "7px")
-          .text("📷");
+        var memTx = memCx + 28;
+        var yBase = -cardH / 2 + 18;
+
+        memG.append("text").attr("x", memTx).attr("y", yBase).attr("font-size", "11px").attr("font-weight", "900").attr("fill", "#103d2b").text(data.displayName);
+        memG.append("text").attr("x", memTx).attr("y", yBase + 16).attr("font-size", "9.5px").attr("font-weight", "700").attr("fill", "#64748b").text(data.genText);
+        memG.append("text").attr("x", memTx).attr("y", yBase + 32).attr("font-size", "9px").attr("font-weight", "800").attr("fill", "#334155").text(data.datesText);
+        memG.append("text").attr("x", memTx).attr("y", yBase + 48).attr("font-size", "8.5px").attr("font-weight", "800").attr("fill", data.isDeceased ? "#94a3b8" : "#059669").text(data.isDeceased ? "🕊️ Deceased" : "🟢 Living");
+
+
+        // 2. CENTER MARRIAGE CONNECTOR (RINGS BADGE)
+        var ringG = el.append("g").attr("class", "couple-connector-rings");
+        ringG.append("line").attr("x1", -gap/2).attr("y1", 0).attr("x2", gap/2).attr("y2", 0).attr("stroke", "#e9bf52").attr("stroke-width", "2.5px");
+        ringG.append("circle").attr("cx", 0).attr("cy", 0).attr("r", 13).attr("fill", "#ffffff").attr("stroke", "#e9bf52").attr("stroke-width", "2px");
+        ringG.append("text").attr("x", 0).attr("y", 4).attr("text-anchor", "middle").attr("font-size", "11px").text("💍");
+
+
+        // 3. SPOUSE CARD (RIGHT SIDE)
+        var spouseG = el.append("g")
+          .attr("class", "couple-spouse-card")
+          .style("cursor", "pointer")
+          .on("click", function(event) {
+            event.stopPropagation();
+            var spId = sp.id || sp.recordId;
+            if (typeof window.openMemberDetailModal === "function" && spId) window.openMemberDetailModal(spId);
+            else if (typeof window.openProfile === "function") window.openProfile(sp);
+          });
+
+        var spBranchKey = (sp.branchType || rec.branchType || "heritage").toLowerCase();
+        var spBranchCfg = BRANCH_COLORS[spBranchKey] || BRANCH_COLORS.heritage;
+        var spName = sp.firstName ? ((sp.firstName || "") + " " + (sp.lastName || "")).trim() : (sp.name || "Spouse");
+        var spDisplayName = spName.length > 26 ? spName.substring(0, 24) + "…" : spName;
+        var spPhotoUrl = (sp.photo || sp.storedPhoto || sp.photoFile || "").trim();
+        var spInitials = getMemberInitials(sp, spName);
+        var spDeceased = !!(sp.deceased || sp.dod);
+        var spDatesText = (typeof formatLifespanForNode === "function") ? formatLifespanForNode(sp, spDeceased) : "";
+
+        spouseG.append("rect")
+          .attr("x", gap/2)
+          .attr("y", -cardH / 2)
+          .attr("width", cardW)
+          .attr("height", cardH)
+          .attr("rx", rx)
+          .attr("ry", ry)
+          .attr("fill", spBranchCfg.bg)
+          .attr("stroke", "#e9bf52")
+          .attr("stroke-width", "2px")
+          .style("filter", "drop-shadow(0 3px 8px rgba(0,0,0,0.06))");
+
+        // Right Accent Strip for Spouse
+        spouseG.append("path")
+          .attr("d", "M " + (gap/2 + cardW) + " " + (-cardH/2 + rx) + 
+                     " A " + rx + " " + rx + " 0 0 0 " + (gap/2 + cardW - rx) + " " + (-cardH/2) + 
+                     " L " + (gap/2 + cardW - 8) + " " + (-cardH/2) + 
+                     " L " + (gap/2 + cardW - 8) + " " + (cardH/2) + 
+                     " L " + (gap/2 + cardW - rx) + " " + (cardH/2) + 
+                     " A " + rx + " " + rx + " 0 0 0 " + (gap/2 + cardW) + " " + (cardH/2 - rx) + " Z")
+          .attr("fill", "#e9bf52");
+
+        // Spouse Avatar
+        var spCx = gap/2 + 28;
+        var spAvatarG = spouseG.append("g").attr("transform", "translate(" + spCx + ", 0)");
+        if (spPhotoUrl) {
+          var spCleanId = String(sp.id || "sp").replace(/[^a-zA-Z0-9_-]/g, "_");
+          var spClipId = "clip_" + clipPrefix + "_sp_" + spCleanId;
+          defs.append("clipPath").attr("id", spClipId).append("circle").attr("cx", 0).attr("cy", 0).attr("r", 20);
+          spAvatarG.append("image")
+            .attr("href", spPhotoUrl)
+            .attr("x", -20).attr("y", -20).attr("width", 40).attr("height", 40)
+            .attr("preserveAspectRatio", "xMidYMid slice")
+            .attr("clip-path", "url(#" + spClipId + ")");
+          spAvatarG.append("circle").attr("r", 20).attr("fill", "none").attr("stroke", spBranchCfg.ring).attr("stroke-width", 2);
+        } else {
+          spAvatarG.append("circle").attr("r", 20).attr("fill", spBranchCfg.bg).attr("stroke", spBranchCfg.ring).attr("stroke-width", 1.8).attr("stroke-dasharray", "3,2");
+          spAvatarG.append("text").attr("text-anchor", "middle").attr("dy", "0.35em").attr("font-size", "11px").attr("font-weight", "900").attr("fill", "#103d2b").text(spInitials);
+        }
+
+        var spTx = spCx + 28;
+        spouseG.append("text").attr("x", spTx).attr("y", yBase).attr("font-size", "11px").attr("font-weight", "900").attr("fill", "#103d2b").text(spDisplayName);
+        spouseG.append("text").attr("x", spTx).attr("y", yBase + 16).attr("font-size", "9px").attr("font-weight", "900").attr("fill", "#854d0e").text("💍 SPOUSE • Gen " + (sp.generation || data.genText));
+        spouseG.append("text").attr("x", spTx).attr("y", yBase + 32).attr("font-size", "9px").attr("font-weight", "800").attr("fill", "#334155").text(spDatesText);
+        spouseG.append("text").attr("x", spTx).attr("y", yBase + 48).attr("font-size", "8.5px").attr("font-weight", "800").attr("fill", spDeceased ? "#94a3b8" : "#059669").text(spDeceased ? "🕊️ Deceased" : "🟢 Living");
+
+        // Toggle Button (Bottom Center of Couple)
+        var toggleG = el.append("g")
+          .attr("class", "d3-node-toggle-btn")
+          .attr("transform", "translate(0, " + (cardH/2) + ")")
+          .style("cursor", "pointer")
+          .style("display", function(d) {
+            return data.hasChildren ? "inline" : "none";
+          });
+
+        toggleG.append("circle").attr("r", 10).attr("fill", "#103d2b").attr("stroke", "#ffffff").attr("stroke-width", 2);
+        toggleG.append("text").attr("text-anchor", "middle").attr("dy", "0.35em").attr("font-size", "10px").attr("font-weight", "900").attr("fill", "#ffffff")
+          .text(function(d) {
+            return d._children ? "+" + (d._children.length || d.data.childrenCount) : (d.children ? "−" : "");
+          });
+
+      } else {
+        // =========================================================================
+        // SINGLE MEMBER NODE (NO SPOUSE)
+        // =========================================================================
+        el.append("rect")
+          .attr("class", "d3-node-card-bg")
+          .attr("x", -nodeWidth / 2)
+          .attr("y", -nodeHeight / 2)
+          .attr("width", nodeWidth)
+          .attr("height", nodeHeight)
+          .attr("rx", rx)
+          .attr("ry", ry)
+          .attr("fill", data.branch.bg)
+          .attr("stroke", data.branch.stroke)
+          .attr("stroke-width", "2px")
+          .style("filter", "drop-shadow(0 3px 8px rgba(0,0,0,0.06))");
+
+        el.append("path")
+          .attr("d", "M " + (-nodeWidth/2) + " " + (-nodeHeight/2 + rx) + 
+                     " A " + rx + " " + rx + " 0 0 1 " + (-nodeWidth/2 + rx) + " " + (-nodeHeight/2) + 
+                     " L " + (-nodeWidth/2 + 8) + " " + (-nodeHeight/2) + 
+                     " L " + (-nodeWidth/2 + 8) + " " + (nodeHeight/2) + 
+                     " L " + (-nodeWidth/2 + rx) + " " + (nodeHeight/2) + 
+                     " A " + rx + " " + rx + " 0 0 1 " + (-nodeWidth/2) + " " + (nodeHeight/2 - rx) + " Z")
+          .attr("fill", data.branch.accent);
+
+        if (options.hasSquareHeaderStrip) {
+          el.append("path")
+            .attr("d", "M " + (-nodeWidth/2) + " " + (-nodeHeight/2 + 4) +
+                       " A 4 4 0 0 1 " + (-nodeWidth/2 + 4) + " " + (-nodeHeight/2) +
+                       " L " + (nodeWidth/2 - 4) + " " + (-nodeHeight/2) +
+                       " A 4 4 0 0 1 " + (nodeWidth/2) + " " + (-nodeHeight/2 + 4) +
+                       " L " + (nodeWidth/2) + " " + (-nodeHeight/2 + 18) +
+                       " L " + (-nodeWidth/2) + " " + (-nodeHeight/2 + 18) + " Z")
+            .attr("fill", data.branch.accent);
+
+          el.append("text")
+            .attr("x", -nodeWidth/2 + 12)
+            .attr("y", -nodeHeight/2 + 13)
+            .attr("fill", "#ffffff")
+            .attr("font-size", "9.5px")
+            .attr("font-weight", "800")
+            .text(data.branch.label + " • " + data.genText);
+        }
+
+        var avatarG = el.append("g")
+          .attr("transform", "translate(" + (-nodeWidth/2 + 32) + ", " + (options.hasSquareHeaderStrip ? 10 : 0) + ")");
+
+        if (data.photoUrl) {
+          var cleanId = String(d.data.id).replace(/[^a-zA-Z0-9_-]/g, "_");
+          var clipId = "clip_" + clipPrefix + "_" + cleanId;
+          defs.append("clipPath").attr("id", clipId).append("circle").attr("cx", 0).attr("cy", 0).attr("r", 20);
+          avatarG.append("image")
+            .attr("href", data.photoUrl)
+            .attr("x", -20).attr("y", -20).attr("width", 40).attr("height", 40)
+            .attr("preserveAspectRatio", "xMidYMid slice")
+            .attr("clip-path", "url(#" + clipId + ")");
+          avatarG.append("circle").attr("r", 20).attr("fill", "none").attr("stroke", data.branch.ring).attr("stroke-width", 2);
+        } else {
+          avatarG.append("circle").attr("r", 20).attr("fill", data.branch.bg).attr("stroke", data.branch.ring).attr("stroke-width", 1.8).attr("stroke-dasharray", "3,2");
+          avatarG.append("text").attr("text-anchor", "middle").attr("dy", "0.35em").attr("font-size", "11px").attr("font-weight", "900").attr("fill", "#103d2b").text(data.initials);
+          var badgeG = avatarG.append("g").attr("transform", "translate(13, 13)");
+          badgeG.append("circle").attr("r", 6.5).attr("fill", "#ffffff").attr("stroke", data.branch.ring).attr("stroke-width", 1);
+          badgeG.append("text").attr("text-anchor", "middle").attr("dy", "0.35em").attr("font-size", "7px").text("📷");
+        }
+
+        var textLeft = -nodeWidth/2 + 60;
+        var yBase = options.hasSquareHeaderStrip ? (-nodeHeight/2 + 34) : (-nodeHeight/2 + 20);
+
+        el.append("text").attr("x", textLeft).attr("y", yBase).attr("font-size", "11.5px").attr("font-weight", "900").attr("fill", "#103d2b").text(data.displayName);
+        el.append("text").attr("x", textLeft).attr("y", yBase + 16).attr("font-size", "9.5px").attr("font-weight", "700").attr("fill", "#64748b").text(data.genText);
+        el.append("text").attr("x", textLeft).attr("y", yBase + 32).attr("font-size", "9px").attr("font-weight", "700").attr("fill", "#475569").text(data.datesText);
+        el.append("text").attr("x", textLeft).attr("y", yBase + 48).attr("font-size", "9px").attr("font-weight", "800").attr("fill", data.statusColor).text(data.statusText);
+
+        var toggleG = el.append("g")
+          .attr("class", "d3-node-toggle-btn")
+          .attr("transform", function() {
+            if (togglePos === "right") {
+              return "translate(" + (nodeWidth/2 - 12) + ", 0)";
+            }
+            return "translate(0, " + (nodeHeight/2) + ")";
+          })
+          .style("cursor", "pointer")
+          .style("display", function(d) {
+            return data.hasChildren ? "inline" : "none";
+          });
+
+        toggleG.append("circle").attr("r", 10).attr("fill", "#103d2b").attr("stroke", "#ffffff").attr("stroke-width", 2);
+        toggleG.append("text").attr("text-anchor", "middle").attr("dy", "0.35em").attr("font-size", "10px").attr("font-weight", "900").attr("fill", "#ffffff")
+          .text(function(d) {
+            return d._children ? "+" + (d._children.length || d.data.childrenCount) : (d.children ? "−" : "");
+          });
       }
     });
-
-    var textLeft = -nodeWidth/2 + 60;
-    var yBase = options.hasSquareHeaderStrip ? (-nodeHeight/2 + 34) : (-nodeHeight/2 + 20);
-
-    // 4. Line 1: Member Name
-    nodeEnter.append("text")
-      .attr("x", textLeft)
-      .attr("y", yBase)
-      .attr("font-size", "11.5px")
-      .attr("font-weight", "900")
-      .attr("fill", "#103d2b")
-      .text(function(d) {
-        return getCardData(d).displayName;
-      });
-
-    // 5. Line 2: Generation Subtitle
-    nodeEnter.append("text")
-      .attr("x", textLeft)
-      .attr("y", yBase + 16)
-      .attr("font-size", "9.5px")
-      .attr("font-weight", "700")
-      .attr("fill", "#64748b")
-      .text(function(d) {
-        return getCardData(d).genText;
-      });
-
-    // 6. Line 3: Dates (Born / Died / Age)
-    nodeEnter.append("text")
-      .attr("x", textLeft)
-      .attr("y", yBase + 32)
-      .attr("font-size", "9px")
-      .attr("font-weight", "700")
-      .attr("fill", "#475569")
-      .text(function(d) {
-        return getCardData(d).datesText;
-      });
-
-    // 7. Line 4: Status Line (🕊️ Deceased / 💍 Spouse • 🟢 Living / 🟢 Living)
-    nodeEnter.append("text")
-      .attr("x", textLeft)
-      .attr("y", yBase + 48)
-      .attr("font-size", "9px")
-      .attr("font-weight", "800")
-      .attr("fill", function(d) {
-        return getCardData(d).statusColor;
-      })
-      .text(function(d) {
-        return getCardData(d).statusText;
-      });
-
-    // 8. Expand / Collapse Pill Button (+count / −)
-    var toggleG = nodeEnter.append("g")
-      .attr("class", "d3-node-toggle-btn")
-      .attr("transform", function() {
-        if (togglePos === "right") {
-          return "translate(" + (nodeWidth/2 - 12) + ", 0)";
-        }
-        return "translate(0, " + (nodeHeight/2) + ")";
-      })
-      .style("cursor", "pointer")
-      .style("display", function(d) {
-        var data = getCardData(d);
-        return data.hasChildren ? "inline" : "none";
-      });
-
-    toggleG.append("circle")
-      .attr("r", 10)
-      .attr("fill", "#103d2b")
-      .attr("stroke", "#ffffff")
-      .attr("stroke-width", 2);
-
-    toggleG.append("text")
-      .attr("text-anchor", "middle")
-      .attr("dy", "0.35em")
-      .attr("font-size", "10px")
-      .attr("font-weight", "900")
-      .attr("fill", "#ffffff")
-      .text(function(d) {
-        return d._children ? "+" + (d._children.length || d.data.childrenCount) : (d.children ? "−" : "");
-      });
   }
 
   // Common Search & Spotlight bar for all classical trees
@@ -563,7 +614,12 @@
     d3Root.x0 = (container.clientWidth || 1000) / 2;
     d3Root.y0 = 60;
 
-    var treeLayout = d3.tree().nodeSize([nodeWidth + 40, nodeHeight + 80]);
+    var treeLayout = d3.tree().nodeSize([nodeWidth + 90, nodeHeight + 80]).separation(function(a, b) {
+      var showSp = (window.showSpouseRecords !== false);
+      var aSp = showSp && (a.data.spouse || (typeof findSpouseRecord === "function" && findSpouseRecord(a.data.record)));
+      var bSp = showSp && (b.data.spouse || (typeof findSpouseRecord === "function" && findSpouseRecord(b.data.record)));
+      return (a.parent === b.parent ? (aSp || bSp ? 1.6 : 1.1) : (aSp || bSp ? 2.0 : 1.3));
+    });
 
     var svg = wrapper.append("svg")
       .attr("class", "d3-tree-svg")
@@ -745,7 +801,12 @@
     d3Root.x0 = (container.clientWidth || 1000) / 2;
     d3Root.y0 = 60;
 
-    var treeLayout = d3.tree().nodeSize([nodeWidth + 40, nodeHeight + 84]);
+    var treeLayout = d3.tree().nodeSize([nodeWidth + 90, nodeHeight + 84]).separation(function(a, b) {
+      var showSp = (window.showSpouseRecords !== false);
+      var aSp = showSp && (a.data.spouse || (typeof findSpouseRecord === "function" && findSpouseRecord(a.data.record)));
+      var bSp = showSp && (b.data.spouse || (typeof findSpouseRecord === "function" && findSpouseRecord(b.data.record)));
+      return (a.parent === b.parent ? (aSp || bSp ? 1.6 : 1.1) : (aSp || bSp ? 2.0 : 1.3));
+    });
 
     var svg = wrapper.append("svg")
       .attr("class", "d3-tree-svg")
@@ -940,7 +1001,12 @@
     d3Root.x0 = (container.clientWidth || 1000) / 2;
     d3Root.y0 = 60;
 
-    var treeLayout = d3.tree().nodeSize([nodeWidth + 24, nodeHeight + 60]);
+    var treeLayout = d3.tree().nodeSize([nodeWidth + 80, nodeHeight + 60]).separation(function(a, b) {
+      var showSp = (window.showSpouseRecords !== false);
+      var aSp = showSp && (a.data.spouse || (typeof findSpouseRecord === "function" && findSpouseRecord(a.data.record)));
+      var bSp = showSp && (b.data.spouse || (typeof findSpouseRecord === "function" && findSpouseRecord(b.data.record)));
+      return (a.parent === b.parent ? (aSp || bSp ? 1.6 : 1.1) : (aSp || bSp ? 2.0 : 1.3));
+    });
 
     var svg = wrapper.append("svg")
       .attr("class", "d3-tree-svg")
@@ -1122,7 +1188,12 @@
     d3Root.x0 = (container.clientHeight || 650) / 2;
     d3Root.y0 = 60;
 
-    var treeLayout = d3.tree().nodeSize([nodeHeight + 36, nodeWidth + 90]);
+    var treeLayout = d3.tree().nodeSize([nodeHeight + 50, nodeWidth + 120]).separation(function(a, b) {
+      var showSp = (window.showSpouseRecords !== false);
+      var aSp = showSp && (a.data.spouse || (typeof findSpouseRecord === "function" && findSpouseRecord(a.data.record)));
+      var bSp = showSp && (b.data.spouse || (typeof findSpouseRecord === "function" && findSpouseRecord(b.data.record)));
+      return (a.parent === b.parent ? (aSp || bSp ? 1.6 : 1.1) : (aSp || bSp ? 2.0 : 1.3));
+    });
 
     var svg = wrapper.append("svg")
       .attr("class", "d3-tree-svg")
@@ -1306,7 +1377,10 @@
     var treeLayout = d3.tree()
       .size([2 * Math.PI, totalRadius])
       .separation(function(a, b) {
-        var baseSep = (a.parent === b.parent ? 3.4 : 6.2);
+        var showSp = (window.showSpouseRecords !== false);
+        var aSp = showSp && (a.data.spouse || (typeof findSpouseRecord === "function" && findSpouseRecord(a.data.record)));
+        var bSp = showSp && (b.data.spouse || (typeof findSpouseRecord === "function" && findSpouseRecord(b.data.record)));
+        var baseSep = (a.parent === b.parent ? (aSp || bSp ? 4.2 : 3.4) : (aSp || bSp ? 7.5 : 6.2));
         return baseSep / Math.max(1, Math.sqrt(a.depth));
       });
 

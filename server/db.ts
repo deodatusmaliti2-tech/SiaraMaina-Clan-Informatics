@@ -2,6 +2,7 @@ import { initializeApp, getApps, getApp } from "firebase/app";
 import {
   initializeFirestore,
   getFirestore,
+  setLogLevel,
   doc,
   getDoc,
   setDoc,
@@ -19,6 +20,8 @@ import {
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
+
+try { setLogLevel("silent"); } catch (e) {}
 
 // 1. Load centralized configuration from firebase-applet-config.json
 const configPath = path.resolve(process.cwd(), "firebase-applet-config.json");
@@ -53,14 +56,31 @@ export const firestoreDb = dbInstance;
 const quotaFlagPath = path.resolve(process.cwd(), "server/data/firestore_quota.flag");
 
 function isQuotaExhaustedPersisted(): boolean {
-  return fs.existsSync(quotaFlagPath);
+  if (fs.existsSync(quotaFlagPath)) {
+    try {
+      const content = fs.readFileSync(quotaFlagPath, "utf-8").trim();
+      const today = new Date().toISOString().slice(0, 10);
+      if (content === today || content === "true") {
+        return true;
+      } else {
+        try { fs.unlinkSync(quotaFlagPath); } catch (e) {}
+        return false;
+      }
+    } catch (e) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function setQuotaExhaustedPersisted() {
-  if (!fs.existsSync(path.dirname(quotaFlagPath))) {
-    fs.mkdirSync(path.dirname(quotaFlagPath), { recursive: true });
-  }
-  fs.writeFileSync(quotaFlagPath, "true");
+  try {
+    if (!fs.existsSync(path.dirname(quotaFlagPath))) {
+      fs.mkdirSync(path.dirname(quotaFlagPath), { recursive: true });
+    }
+    const today = new Date().toISOString().slice(0, 10);
+    fs.writeFileSync(quotaFlagPath, today, "utf-8");
+  } catch (e) {}
 }
 
 let serverFirestoreQuotaExhausted = isQuotaExhaustedPersisted();
@@ -121,6 +141,8 @@ export interface DeletedRecordEntry {
   id: string;
   clanMemberNumber?: string;
   email?: string;
+  firstName?: string;
+  lastName?: string;
   nameKey?: string;
   deletedAt: string;
   deletedBy?: string;
@@ -144,9 +166,11 @@ export function recordDeletion(id: string, member?: any, deletedBy: string = "sy
   const idStr = String(id).trim();
   const clanNum = String(member?.clanMemberNumber || member?.clan_member_number || "").trim().toUpperCase();
   const email = String(member?.email || "").trim().toLowerCase();
-  const fn = String(member?.firstName || member?.first_name || "").trim().toLowerCase();
-  const ln = String(member?.lastName || member?.last_name || "").trim().toLowerCase();
-  const nameKey = fn ? (ln ? `${fn}_${ln}` : `${fn}_single`) : "";
+  const firstName = String(member?.firstName || member?.first_name || "").trim();
+  const lastName = String(member?.lastName || member?.last_name || "").trim();
+  const fnLower = firstName.toLowerCase();
+  const lnLower = lastName.toLowerCase();
+  const nameKey = (fnLower && lnLower) ? `${fnLower}_${lnLower}` : "";
 
   const exists = list.some(d => d.id === idStr || (clanNum && d.clanMemberNumber === clanNum) || (email && d.email === email) || (nameKey && d.nameKey === nameKey));
   if (!exists) {
@@ -154,6 +178,8 @@ export function recordDeletion(id: string, member?: any, deletedBy: string = "sy
       id: idStr,
       clanMemberNumber: clanNum || undefined,
       email: email || undefined,
+      firstName: firstName || undefined,
+      lastName: lastName || undefined,
       nameKey: nameKey || undefined,
       deletedAt: new Date().toISOString(),
       deletedBy
@@ -169,14 +195,13 @@ export function recordDeletion(id: string, member?: any, deletedBy: string = "sy
     const mId = String(m.id || m.recordId || "").trim();
     const mClan = String(m.clanMemberNumber || "").trim().toUpperCase();
     const mEmail = String(m.email || "").trim().toLowerCase();
-    const mFn = String(m.firstName || "").trim().toLowerCase();
-    const mLn = String(m.lastName || "").trim().toLowerCase();
-    const mName = mFn ? (mLn ? `${mFn}_${mLn}` : `${mFn}_single`) : "";
+    const mFn = String(m.firstName || m.first_name || "").trim().toLowerCase();
+    const mLn = String(m.lastName || m.last_name || "").trim().toLowerCase();
 
     if (mId && mId === idStr) return false;
     if (clanNum && mClan && mClan === clanNum) return false;
     if (email && mEmail && mEmail === email) return false;
-    if (nameKey && mName && mName === nameKey) return false;
+    if (nameKey && mFn && mLn && `${mFn}_${mLn}` === nameKey) return false;
     return true;
   });
   writeJsonFile(membersJsonPath, filtered);
@@ -191,18 +216,25 @@ export function unrecordDeletion(id: string) {
   writeJsonFile(rootDeletedIdsJsonPath, filtered);
 }
 
-export function isMemberIdDeleted(id?: string, clanNum?: string, email?: string, nameKey?: string): boolean {
+export function isMemberIdDeleted(id?: string, clanNum?: string, email?: string, firstName?: string, lastName?: string): boolean {
   const list = getDeletedRegistry();
   const idStr = String(id || "").trim();
   const clanStr = String(clanNum || "").trim().toUpperCase();
   const emailStr = String(email || "").trim().toLowerCase();
-  const nameStr = String(nameKey || "").trim().toLowerCase();
+  const fnStr = String(firstName || "").trim().toLowerCase();
+  const lnStr = String(lastName || "").trim().toLowerCase();
+  const nameKey = (fnStr && lnStr) ? `${fnStr}_${lnStr}` : "";
 
   return list.some(d => {
-    if (idStr && d.id && d.id === idStr) return true;
-    if (clanStr && d.clanMemberNumber && d.clanMemberNumber === clanStr) return true;
-    if (emailStr && d.email && d.email === emailStr) return true;
-    if (nameStr && d.nameKey && d.nameKey === nameStr) return true;
+    if (idStr && d.id && String(d.id).trim() === idStr) return true;
+    if (clanStr && d.clanMemberNumber && String(d.clanMemberNumber).trim().toUpperCase() === clanStr) return true;
+    if (emailStr && d.email && String(d.email).trim().toLowerCase() === emailStr) return true;
+    if (nameKey) {
+      if (d.nameKey && d.nameKey === nameKey) return true;
+      const dFn = String(d.firstName || "").trim().toLowerCase();
+      const dLn = String(d.lastName || "").trim().toLowerCase();
+      if (dFn && dLn && `${dFn}_${dLn}` === nameKey) return true;
+    }
     return false;
   });
 }
@@ -325,15 +357,16 @@ export function deduplicateMembersList(list: ClanMemberRecord[]): ClanMemberReco
     const emailKey = String(m.email || "").trim().toLowerCase();
     const phoneKey = String(m.phone || m.whatsapp || "").replace(/\D/g, "");
     const fn = String(m.firstName || "").trim().toLowerCase();
+    const mn = String(m.middleName || "").trim().toLowerCase();
     const ln = String(m.lastName || "").trim().toLowerCase();
     const branch = String(m.branchType || "heritage").trim().toLowerCase();
-    const nameKey = ln ? `${fn}_${ln}` : `${fn}_single_${branch}`;
+    const nameKey = ln ? (mn ? `${fn}_${mn}_${ln}` : `${fn}_${ln}`) : `${fn}_single_${branch}`;
 
     let existing: ClanMemberRecord | null = null;
     if (mId && idMap.has(mId)) existing = idMap.get(mId)!;
     else if (clanNum && clanMap.has(clanNum)) existing = clanMap.get(clanNum)!;
     else if (emailKey && emailMap.has(emailKey)) existing = emailMap.get(emailKey)!;
-    else if (nameKey && nameMap.has(nameKey)) existing = nameMap.get(nameKey)!;
+    else if (nameKey && fn && ln && nameMap.has(nameKey)) existing = nameMap.get(nameKey)!;
     else if (phoneKey && phoneKey.length >= 7 && phoneMap.has(phoneKey)) existing = phoneMap.get(phoneKey)!;
 
     if (existing) {
@@ -363,7 +396,25 @@ export const dbEngine = {
     const deletedIds = new Set(deletedList.map(d => d.id).filter(Boolean));
     const deletedClans = new Set(deletedList.map(d => d.clanMemberNumber).filter(Boolean));
     const deletedEmails = new Set(deletedList.map(d => d.email).filter(Boolean));
-    const deletedNames = new Set(deletedList.map(d => d.nameKey).filter(Boolean));
+
+    if (!isServerFirestoreAvailable()) {
+      const local = readJsonFile(membersJsonPath);
+      const filtered = local.filter((m: any) => {
+        if (!m) return false;
+        const fn = String(m.firstName || "").trim().toLowerCase();
+        const ln = String(m.lastName || "").trim().toLowerCase();
+        const mClan = m.clanMemberNumber;
+        const mEmail = m.email;
+        if (fn === "by" && !ln && !mClan && !mEmail) return false;
+        if (!includeDeleted) {
+          if (m.deleted || m.active === false) return false;
+          const mId = m.id || m.recordId;
+          if (isMemberIdDeleted(mId, mClan, mEmail)) return false;
+        }
+        return true;
+      });
+      return deduplicateMembersList(filtered);
+    }
 
     try {
       if (!firestoreDb) throw new Error("Firestore not initialized");
@@ -376,11 +427,11 @@ export const dbEngine = {
           const mId = d.id;
           const mClan = String(data.clanMemberNumber || data.clan_member_number || "").trim().toUpperCase();
           const mEmail = String(data.email || "").trim().toLowerCase();
-          const mFn = String(data.firstName || data.first_name || "").trim().toLowerCase();
-          const mLn = String(data.lastName || data.last_name || "").trim().toLowerCase();
-          const mName = (mFn && mLn) ? `${mFn}_${mLn}` : "";
+          const fn = String(data.firstName || data.first_name || "").trim().toLowerCase();
+          const ln = String(data.lastName || data.last_name || "").trim().toLowerCase();
+          if (fn === "by" && !ln && !mClan && !mEmail) return;
 
-          const isDeletedInRegistry = deletedIds.has(mId) || (mClan && deletedClans.has(mClan)) || (mEmail && deletedEmails.has(mEmail)) || (mName && deletedNames.has(mName));
+          const isDeletedInRegistry = deletedIds.has(mId) || (mClan && deletedClans.has(mClan)) || (mEmail && deletedEmails.has(mEmail));
 
           const item: ClanMemberRecord = {
             ...data,
@@ -397,12 +448,27 @@ export const dbEngine = {
         }
       });
       const deduplicated = deduplicateMembersList(list);
-      // Sync local backup (excluding deleted if not requested)
+      // Merge with local records to ensure no unpersisted records are dropped
+      const local = readJsonFile(membersJsonPath);
+      const fsIds = new Set(deduplicated.map(m => m.id));
+      local.forEach((m: any) => {
+        if (!m) return;
+        const fn = String(m.firstName || "").trim().toLowerCase();
+        const ln = String(m.lastName || "").trim().toLowerCase();
+        if (fn === "by" && !ln && !m.clanMemberNumber && !m.email) return;
+        if (m.deleted || m.active === false) return;
+        if (isMemberIdDeleted(m.id || m.recordId, m.clanMemberNumber, m.email, m.firstName, m.lastName)) return;
+        if (m.id && !fsIds.has(m.id)) {
+          deduplicated.push(m);
+        }
+      });
+      const finalDeduplicated = deduplicateMembersList(deduplicated);
       if (!includeDeleted) {
-        writeJsonFile(membersJsonPath, deduplicated);
+        writeJsonFile(membersJsonPath, finalDeduplicated);
       }
-      return deduplicated;
+      return finalDeduplicated;
     } catch (err) {
+      handleServerFirestoreError(err, "getMembers");
       const local = readJsonFile(membersJsonPath);
       const filtered = local.filter((m: any) => {
         if (!m) return false;
@@ -516,19 +582,20 @@ export const dbEngine = {
       submissionId: subId || "",
     };
 
-    try {
-      if (!firestoreDb) throw new Error("Firestore not initialized");
-      const memberRef = doc(firestoreDb, "members", memberId);
-      await setDoc(memberRef, sanitizeForFirestore(newRecord));
-      if (subId) {
-        await setDoc(doc(firestoreDb, "submissions", subId), {
-          memberId,
-          createdAt: now,
-          createdBy: userEmail,
-        });
+    if (isServerFirestoreAvailable() && firestoreDb) {
+      try {
+        const memberRef = doc(firestoreDb, "members", memberId);
+        await setDoc(memberRef, sanitizeForFirestore(newRecord));
+        if (subId) {
+          await setDoc(doc(firestoreDb, "submissions", subId), {
+            memberId,
+            createdAt: now,
+            createdBy: userEmail,
+          });
+        }
+      } catch (err) {
+        handleServerFirestoreError(err, "addMember");
       }
-    } catch (err) {
-      console.warn("[addMember] Firestore write notice (falling back to local JSON store):", err);
     }
 
     // Always persist to local JSON store as resilient backup
@@ -571,12 +638,13 @@ export const dbEngine = {
       updatedAt: now,
     };
 
-    try {
-      if (!firestoreDb) throw new Error("Firestore not initialized");
-      const memberRef = doc(firestoreDb, "members", id);
-      await setDoc(memberRef, sanitizeForFirestore(updatedRecord), { merge: true });
-    } catch (err) {
-      console.warn("[updateMember] Firestore update notice:", err);
+    if (isServerFirestoreAvailable() && firestoreDb) {
+      try {
+        const memberRef = doc(firestoreDb, "members", id);
+        await setDoc(memberRef, sanitizeForFirestore(updatedRecord), { merge: true });
+      } catch (err) {
+        handleServerFirestoreError(err, "updateMember");
+      }
     }
 
     const local = readJsonFile(membersJsonPath);
@@ -620,8 +688,8 @@ export const dbEngine = {
       deceased: false,
     };
 
-    try {
-      if (firestoreDb) {
+    if (isServerFirestoreAvailable() && firestoreDb) {
+      try {
         const memberRef = doc(firestoreDb, "members", id);
         await setDoc(memberRef, sanitizeForFirestore(updatedRecord), { merge: true });
 
@@ -633,9 +701,9 @@ export const dbEngine = {
           records: activeList.map(sanitizeForFirestore),
           lastUpdated: now
         }, { merge: true });
+      } catch (err) {
+        handleServerFirestoreError(err, "softDeleteMember");
       }
-    } catch (err) {
-      console.warn("[softDeleteMember] Firestore notice:", err);
     }
 
     const local = readJsonFile(membersJsonPath);
@@ -667,8 +735,8 @@ export const dbEngine = {
       updatedAt: now,
     };
 
-    try {
-      if (firestoreDb) {
+    if (isServerFirestoreAvailable() && firestoreDb) {
+      try {
         const memberRef = doc(firestoreDb, "members", id);
         await setDoc(memberRef, sanitizeForFirestore(restoredRecord), { merge: true });
 
@@ -680,9 +748,9 @@ export const dbEngine = {
           records: activeList.map(sanitizeForFirestore),
           lastUpdated: now
         }, { merge: true });
+      } catch (err) {
+        handleServerFirestoreError(err, "restoreMember");
       }
-    } catch (err) {
-      console.warn("[restoreMember] Firestore notice:", err);
     }
 
     const local = readJsonFile(membersJsonPath);
@@ -706,8 +774,8 @@ export const dbEngine = {
     }
     recordDeletion(id, memberToPurge, userEmail);
 
-    try {
-      if (firestoreDb) {
+    if (isServerFirestoreAvailable() && firestoreDb) {
+      try {
         const memberRef = doc(firestoreDb, "members", id);
         await deleteDoc(memberRef);
 
@@ -718,9 +786,9 @@ export const dbEngine = {
           records: activeList.map(sanitizeForFirestore),
           lastUpdated: now
         }, { merge: true });
+      } catch (err) {
+        handleServerFirestoreError(err, "permanentDeleteMember");
       }
-    } catch (err) {
-      console.warn("[permanentDeleteMember] Firestore notice:", err);
     }
 
     const local = readJsonFile(membersJsonPath);
@@ -779,13 +847,22 @@ export const dbEngine = {
       const email = String(raw.email || "").trim().toLowerCase();
       const nKey = fn ? (ln ? `${fn}_${ln}` : `${fn}_single`) : "";
 
-      if (userEmail === "google_sheets_autosync" || userEmail === "google_sheet_webhook" || raw.forceImport || raw.allowReimport) {
+      // Strict filter: a member record MUST have at least one name (first, middle, or last) to be created or reported as a new member
+      if (!fn && !mn && !ln) {
+        continue;
+      }
+      if (fn === "by" && !ln && !clanNum && !email) {
+        continue;
+      }
+
+      const isAutoSyncCall = userEmail === "google_sheets_sync" || userEmail === "google_sheets_autosync" || raw.isAutoSync === true;
+      if (!isAutoSyncCall && (raw.forceImport === true || raw.allowReimport === true)) {
         if (rawId) unrecordDeletion(rawId);
         if (clanNum) unrecordDeletion(clanNum);
         if (email) unrecordDeletion(email);
         if (nKey) unrecordDeletion(nKey);
-      } else if (isMemberIdDeleted(rawId, clanNum, email, nKey)) {
-        continue; // Never re-import deleted member unless forced
+      } else if (isMemberIdDeleted(rawId, clanNum, email, fn, ln)) {
+        continue; // Never re-import deleted member during background sync
       }
 
       let existing: ClanMemberRecord | undefined = undefined;
@@ -795,9 +872,9 @@ export const dbEngine = {
         existing = clanNumMap.get(clanNum);
       } else if (email && emailMap.has(email)) {
         existing = emailMap.get(email);
-      } else if (fn && ln) {
+      } else if (!rawId && !clanNum && !email && fn && ln) {
         existing = nameMap.get(`${fn}_${mn}_${ln}`) || nameMap.get(`${fn}_${ln}`);
-      } else if (fn && !ln) {
+      } else if (!rawId && !clanNum && !email && fn && !ln) {
         existing = singleNameMap.get(fn);
       }
 
@@ -851,6 +928,28 @@ export const dbEngine = {
 
       if (existing) {
         let isChanged = false;
+
+        // Photo preservation safeguard: if incoming sheet row has no photo data, preserve existing photo
+        const rawHasPhoto = Boolean(
+          (raw.photo && String(raw.photo).trim()) ||
+          (raw.storedPhoto && String(raw.storedPhoto).trim()) ||
+          (raw.photoUrl && String(raw.photoUrl).trim()) ||
+          (raw.photoFile && String(raw.photoFile).trim())
+        );
+        const existingHasPhoto = Boolean(
+          (existing.photo && String(existing.photo).trim()) ||
+          (existing.storedPhoto && String(existing.storedPhoto).trim()) ||
+          (existing.photoUrl && String(existing.photoUrl).trim()) ||
+          (existing.photoFile && String(existing.photoFile).trim())
+        );
+
+        if (!rawHasPhoto && existingHasPhoto) {
+          raw.photo = existing.photo || existing.storedPhoto || existing.photoUrl || "";
+          raw.storedPhoto = existing.storedPhoto || existing.photo || "";
+          raw.photoUrl = existing.photoUrl || existing.photo || "";
+          raw.photoFile = existing.photoFile || "";
+        }
+
         Object.keys(raw).forEach((k) => {
           if (k !== "id" && k !== "recordId" && raw[k] !== undefined && raw[k] !== null && raw[k] !== "") {
             if ((existing as any)[k] !== raw[k]) {
@@ -873,17 +972,38 @@ export const dbEngine = {
       }
     }
 
-    // Identify records to delete (only if autosyncing)
+    // Identify records to delete (only if autosyncing from a full sheet fetch)
     if (userEmail === "server_autosync") {
       const incomingIds = new Set(incomingList.map(r => String(r.id || r.recordId || "").trim()).filter(Boolean));
-      currentList.forEach(m => {
-        if (m.id && !incomingIds.has(m.id) && !m.deleted) {
-          m.deleted = true;
-          m.active = false;
-          m.deletedAt = new Date().toISOString();
-          registerMemberInMaps(m);
-        }
-      });
+      const incomingClans = new Set(incomingList.map(r => String(r.clanMemberNumber || "").trim().toUpperCase()).filter(Boolean));
+      const incomingEmails = new Set(incomingList.map(r => String(r.email || "").trim().toLowerCase()).filter(Boolean));
+      const incomingNames = new Set(incomingList.map(r => {
+        const fn = String(r.firstName || "").trim().toLowerCase();
+        const ln = String(r.lastName || "").trim().toLowerCase();
+        const mn = String(r.middleName || "").trim().toLowerCase();
+        return fn && ln ? (mn ? `${fn}_${mn}_${ln}` : `${fn}_${ln}`) : "";
+      }).filter(Boolean));
+
+      if (incomingList.length >= 1) {
+        currentList.forEach(m => {
+          const mFn = String(m.firstName || "").trim().toLowerCase();
+          const mLn = String(m.lastName || "").trim().toLowerCase();
+          const mMn = String(m.middleName || "").trim().toLowerCase();
+          const mNameKey = mFn && mLn ? (mMn ? `${mFn}_${mMn}_${mLn}` : `${mFn}_${mLn}`) : "";
+
+          const inIncoming = (m.id && incomingIds.has(m.id)) ||
+                             (m.clanMemberNumber && incomingClans.has(m.clanMemberNumber.toUpperCase())) ||
+                             (m.email && incomingEmails.has(m.email.toLowerCase())) ||
+                             (mNameKey && incomingNames.has(mNameKey));
+          if (!inIncoming && !m.deleted) {
+            m.deleted = true;
+            m.active = false;
+            m.deletedAt = new Date().toISOString();
+            recordDeletion(m.id, m, "google_sheets_sync");
+            registerMemberInMaps(m);
+          }
+        });
+      }
     }
 
     const finalList = Array.from(map.values());
@@ -1018,8 +1138,8 @@ export const dbEngine = {
     const cleanEmail = (profile.email || "").toLowerCase().trim();
     const cleanProfile = { ...profile, email: cleanEmail };
 
-    try {
-      if (firestoreDb && cleanProfile.uid) {
+    if (isServerFirestoreAvailable() && firestoreDb && cleanProfile.uid) {
+      try {
         const ref = doc(firestoreDb, "users", cleanProfile.uid);
         await setDoc(ref, sanitizeForFirestore(cleanProfile), { merge: true });
 
@@ -1033,8 +1153,10 @@ export const dbEngine = {
             }
           }
         }
+      } catch (err) {
+        handleServerFirestoreError(err, "upsertUser");
       }
-    } catch (err) {}
+    }
 
     const list = readJsonFile(usersJsonPath);
     const idx = list.findIndex((u: any) => u.uid === cleanProfile.uid || (cleanEmail && u.email && u.email.toLowerCase().trim() === cleanEmail));
@@ -1055,8 +1177,8 @@ export const dbEngine = {
     adminEmail: string
   ): Promise<AppUserProfile> => {
     let profile: AppUserProfile | null = null;
-    try {
-      if (firestoreDb) {
+    if (isServerFirestoreAvailable() && firestoreDb) {
+      try {
         const userRef = doc(firestoreDb, "users", targetUid);
         const snap = await getDoc(userRef);
         if (snap.exists()) {
@@ -1064,8 +1186,10 @@ export const dbEngine = {
           profile = { ...current, role, approved, active: approved };
           await setDoc(userRef, profile);
         }
+      } catch (err) {
+        handleServerFirestoreError(err, "updateUserApprovalAndRole");
       }
-    } catch (e) {}
+    }
 
     if (!profile) {
       const list = readJsonFile(usersJsonPath);
@@ -1101,8 +1225,8 @@ export const dbEngine = {
     const found = list.find((u: any) => u.uid === targetUid || u.id === targetUid || (u.email && u.email.toLowerCase().trim() === targetUid.toLowerCase().trim()));
     if (found && found.email) targetEmail = found.email.toLowerCase().trim();
 
-    try {
-      if (firestoreDb) {
+    if (isServerFirestoreAvailable() && firestoreDb) {
+      try {
         const userRef = doc(firestoreDb, "users", targetUid);
         await deleteDoc(userRef);
 
@@ -1113,8 +1237,10 @@ export const dbEngine = {
             await deleteDoc(d.ref);
           }
         }
+      } catch (err) {
+        handleServerFirestoreError(err, "deleteUser");
       }
-    } catch (e) {}
+    }
 
     const filtered = list.filter((u: any) => 
       u.uid !== targetUid && 
@@ -1136,12 +1262,14 @@ export const dbEngine = {
 
   // Immutable Activity Logs
   addAuditLog: async (entry: ActivityLogEntry): Promise<void> => {
-    try {
-      if (firestoreDb) {
+    if (isServerFirestoreAvailable() && firestoreDb) {
+      try {
         const logRef = doc(firestoreDb, "ActivityLogs", entry.id);
         await setDoc(logRef, entry);
+      } catch (err) {
+        handleServerFirestoreError(err, "addAuditLog");
       }
-    } catch (err) {}
+    }
     const logs = readJsonFile(logsJsonPath);
     logs.unshift(entry);
     if (logs.length > 200) logs.pop();

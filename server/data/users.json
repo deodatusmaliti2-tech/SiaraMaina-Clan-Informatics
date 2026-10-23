@@ -1,35 +1,26 @@
 [
   {
-    "uid": "6G8sxMl8cVh3ex2y1lyedqWrwVh2",
+    "uid": "user-1udbvs09",
+    "email": "dmaliti@researchlinktz.com",
+    "displayName": "Victor Maliti",
+    "role": "editor",
+    "branch": "siara",
+    "approved": true,
+    "active": true,
+    "pendingRoleAssignment": false,
+    "createdAt": "2026-10-23T07:03:57.405Z",
+    "lastLoginAt": "2026-10-23T11:15:48.958Z"
+  },
+  {
+    "uid": "user-glyklkz5",
     "email": "deodatusmaliti2@gmail.com",
     "displayName": "Deodatus Maliti",
     "role": "admin",
     "branch": "general",
     "approved": true,
     "active": true,
-    "createdAt": "2026-10-19T08:17:08.424Z",
-    "lastLoginAt": "2026-10-21T07:54:35.447Z"
-  },
-  {
-    "uid": "user-3y7jwmh2",
-    "email": "dmaliti@researchlinktz.com",
-    "displayName": "Victor Maliti",
-    "role": "editor",
-    "branch": "general",
-    "approved": true,
-    "active": true,
-    "createdAt": "2026-10-17T14:40:49.122Z",
-    "lastLoginAt": "2026-10-19T09:12:37.752Z"
-  },
-  {
-    "uid": "user-yh82b71d",
-    "email": "deodatusmaliti@yahoo.co.uk",
-    "displayName": "Deodatus Maliti (Yahoo)",
-    "role": "editor",
-    "branch": "maliti",
-    "approved": true,
-    "active": true,
-    "createdAt": "2026-10-18T10:15:20.000Z",
-    "lastLoginAt": "2026-10-19T09:15:00.000Z"
+    "pendingRoleAssignment": false,
+    "createdAt": "2026-10-23T06:51:31.837Z",
+    "lastLoginAt": "2026-10-23T11:15:48.958Z"
   }
 ]
