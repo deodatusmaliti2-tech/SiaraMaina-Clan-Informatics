@@ -63,7 +63,11 @@ export function mapRowToClanMember(raw: Record<string, any>, index: number): Rec
   }
 
   // A new or existing member MUST have at least one name (first, middle, or last name) to be created or imported into the app.
-  const hasName = Boolean(firstName || middleName || lastName);
+  // Rows with only a Member ID (or blank names) must NOT be synced as new members.
+  const cleanFirstName = String(firstName || "").trim();
+  const cleanMiddleName = String(middleName || "").trim();
+  const cleanLastName = String(lastName || "").trim();
+  const hasName = Boolean(cleanFirstName || cleanMiddleName || cleanLastName);
   if (!hasName) {
     return null;
   }

@@ -973,6 +973,8 @@ export const dbEngine = {
         added++;
         const targetId = targetRecord.id;
         targetRecord.recordId = targetId;
+        const tIdKey = targetRecord.id || targetRecord.recordId;
+        if (tIdKey) map.set(tIdKey, targetRecord as ClanMemberRecord);
         registerMemberInMaps(targetRecord as ClanMemberRecord);
       }
     }
