@@ -19,6 +19,9 @@ import {
 import { metricsEngine } from "./metrics";
 import { serverSyncSheetToApp } from "./sheets";
 
+export const spreadsheetConfigFile = path.resolve(process.cwd(), "data/spreadsheet_config.json");
+export const DEFAULT_SHEETS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyLlYZ3pw4-5ENtn_wf6tInqNRAPmHCdDmzJx40g2hUPNVyK3XOcleP9_MaGqktg6V2/exec";
+
 export const apiRouter = express.Router();
 
 // 1. Telemetry middleware
@@ -631,10 +634,16 @@ apiRouter.delete(["/members/:id", "/members"], requireEditorOrAdmin, async (req:
       deletedRecord = await dbEngine.softDeleteMember(id, user.email);
     }
 
-    // Forward deletion to connected Google Sheet if configured
-    if (deletedRecord || memberToPurge) {
-      syncDeletionToGoogleSheets([deletedRecord || memberToPurge]);
-    }
+    // Forward deletion to connected Google Sheet immediately
+    const recordToSync = deletedRecord || memberToPurge || {
+      id,
+      recordId: id,
+      clanMemberNumber: (req.query.clanMemberNumber as string) || req.body?.clanMemberNumber || "",
+      email: (req.query.email as string) || req.body?.email || "",
+      firstName: (req.body?.firstName as string) || "",
+      lastName: (req.body?.lastName as string) || "",
+    };
+    syncDeletionToGoogleSheets([recordToSync]);
 
     const allActive = await dbEngine.getMembers(false);
 
@@ -642,6 +651,8 @@ apiRouter.delete(["/members/:id", "/members"], requireEditorOrAdmin, async (req:
       action: "DELETE",
       collection: "members",
       id,
+      ids: [id],
+      deletedIds: [id],
       records: allActive,
       count: allActive.length,
       author: user.email,
@@ -651,6 +662,8 @@ apiRouter.delete(["/members/:id", "/members"], requireEditorOrAdmin, async (req:
     syncManager.broadcast("sync_pulse", {
       action: isPermanent ? "PERMANENT_DELETION" : "MEMBER_DELETED",
       id,
+      ids: [id],
+      deletedIds: [id],
       count: allActive.length,
       timestamp: new Date().toISOString(),
     });
@@ -699,9 +712,13 @@ apiRouter.post("/members/batch-delete", requireEditorOrAdmin, async (req: Reques
 
     const isPermanent = req.body?.permanent === true;
     const targetMembers: any[] = [];
+    const incomingMembers: any[] = Array.isArray(req.body?.members) ? req.body.members : [];
 
     for (const id of ids) {
-      const found = allMembersBefore.find(m => m.id === id || m.recordId === id || m.clanMemberNumber === id);
+      let found = allMembersBefore.find(m => m.id === id || m.recordId === id || m.clanMemberNumber === id);
+      if (!found && incomingMembers.length > 0) {
+        found = incomingMembers.find(m => m && (m.id === id || m.recordId === id || m.clanMemberNumber === id));
+      }
       if (found) {
         targetMembers.push(found);
       } else {
@@ -727,6 +744,8 @@ apiRouter.post("/members/batch-delete", requireEditorOrAdmin, async (req: Reques
     syncManager.broadcast("doc_change", {
       action: "DELETE",
       collection: "members",
+      ids,
+      deletedIds: ids,
       records: allActive,
       count: allActive.length,
       author: user.email,
@@ -735,6 +754,8 @@ apiRouter.post("/members/batch-delete", requireEditorOrAdmin, async (req: Reques
 
     syncManager.broadcast("sync_pulse", {
       action: "BATCH_DELETED",
+      ids,
+      deletedIds: ids,
       count: allActive.length,
       deletedCount: ids.length,
       timestamp: new Date().toISOString(),
@@ -1151,82 +1172,95 @@ const normalizeTargetUrl = (url: string): string => {
 async function syncDeletionToGoogleSheets(deletedMembers: any[]) {
   if (!Array.isArray(deletedMembers) || deletedMembers.length === 0) return;
   try {
-    if (!fs.existsSync(spreadsheetConfigFile)) return;
-    const sheetCfg = JSON.parse(fs.readFileSync(spreadsheetConfigFile, "utf-8"));
-    const sheetTargetUrl = sheetCfg.webAppUrl || sheetCfg.url || sheetCfg.spreadsheetId;
-    if (!sheetTargetUrl) return;
+    let sheetTargetUrl = DEFAULT_SHEETS_WEB_APP_URL;
+    if (fs.existsSync(spreadsheetConfigFile)) {
+      try {
+        const sheetCfg = JSON.parse(fs.readFileSync(spreadsheetConfigFile, "utf-8"));
+        sheetTargetUrl = sheetCfg.webAppUrl || sheetCfg.url || sheetCfg.spreadsheetId || sheetTargetUrl;
+      } catch (e) {}
+    }
 
     const targetUrl = normalizeTargetUrl(sheetTargetUrl);
+    if (!targetUrl) return;
 
-    for (const record of deletedMembers) {
-      if (!record) continue;
+    // 1. Collect all identifier aliases for deleted members (including names for members without Member ID)
+    const allIdsToDelete: string[] = [];
+    const allNamesToDelete: string[] = [];
+    deletedMembers.forEach((record) => {
+      if (!record) return;
       const memberId = String(record.id || record.recordId || "").trim();
       const recordId = String(record.recordId || record.id || "").trim();
       const cnum = String(record.clanMemberNumber || record.clan_member_number || record["Clan Member Number"] || "").trim();
       const email = String(record.email || record["Email Address"] || "").trim();
       const firstName = String(record.firstName || record.first_name || record["First Name"] || "").trim();
+      const middleName = String(record.middleName || record.middle_name || "").trim();
       const lastName = String(record.lastName || record.last_name || record["Last Name"] || "").trim();
-      const fullName = `${firstName} ${lastName}`.trim();
-      const nameKey = (firstName && lastName) ? `${firstName.toLowerCase()}_${lastName.toLowerCase()}` : "";
+      const fullName = `${firstName} ${middleName} ${lastName}`.replace(/\s+/g, " ").trim();
+      const simpleFullName = `${firstName} ${lastName}`.replace(/\s+/g, " ").trim();
 
-      const allIds = [
-        memberId,
-        recordId,
-        cnum,
-        email,
-        fullName,
-        nameKey
-      ].filter(Boolean);
+      if (memberId && !memberId.startsWith("rec_")) allIdsToDelete.push(memberId);
+      if (recordId && !recordId.startsWith("rec_")) allIdsToDelete.push(recordId);
+      if (cnum) allIdsToDelete.push(cnum);
+      if (email) allIdsToDelete.push(email);
+      if (fullName && fullName.length > 2) {
+        allIdsToDelete.push(fullName);
+        allNamesToDelete.push(fullName);
+      }
+      if (simpleFullName && simpleFullName.length > 2) {
+        allIdsToDelete.push(simpleFullName);
+        allNamesToDelete.push(simpleFullName);
+      }
+      if (firstName && lastName) {
+        allIdsToDelete.push(`${firstName.toLowerCase()}_${lastName.toLowerCase()}`.trim());
+      }
+      // Also push first name only if no ID/email/cnum exists
+      if (firstName && !cnum && !email) {
+        allIdsToDelete.push(firstName);
+      }
+    });
 
-      const payload = {
-        action: "delete",
-        id: memberId || recordId || cnum || email || fullName,
-        recordId: recordId || memberId,
-        clanMemberNumber: cnum,
-        email: email,
-        firstName: firstName,
-        lastName: lastName,
-        name: fullName,
-        ids: allIds,
-        count: allIds.length
-      };
+    const uniqueIds = Array.from(new Set(allIdsToDelete)).filter(Boolean);
+    if (uniqueIds.length === 0) return;
 
-      const idsParam = allIds.length > 0 ? `&ids=${encodeURIComponent(allIds.join(","))}` : "";
-      const deleteQueryParams = `?action=delete&id=${encodeURIComponent(memberId || recordId || "")}&clanMemberNumber=${encodeURIComponent(cnum)}&email=${encodeURIComponent(email)}${idsParam}`;
-      const postUrlWithParams = targetUrl.includes("?") ? `${targetUrl}&${deleteQueryParams.slice(1)}` : `${targetUrl}${deleteQueryParams}`;
+    // 2. Dispatch batch deletion to Google Apps Script Web App in a single clean request
+    const batchController = new AbortController();
+    const batchTimeout = setTimeout(() => batchController.abort(), 45000);
+    const batchIdsParam = `&ids=${encodeURIComponent(uniqueIds.join(","))}&id=${encodeURIComponent(uniqueIds.join(","))}`;
+    const batchPostUrl = targetUrl.includes("?") ? `${targetUrl}&action=delete${batchIdsParam}` : `${targetUrl}?action=delete${batchIdsParam}`;
 
+    try {
+      const resp = await fetch(batchPostUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "delete",
+          ids: uniqueIds,
+          id: uniqueIds.join(","),
+          names: allNamesToDelete,
+          count: uniqueIds.length,
+          timestamp: new Date().toISOString(),
+        }),
+        redirect: "follow",
+        signal: batchController.signal,
+      });
+      clearTimeout(batchTimeout);
+      const txt = await resp.text();
+      console.log(`[GoogleSheets Forward Batch Delete] Response:`, txt);
+    } catch (batchErr: any) {
+      clearTimeout(batchTimeout);
       try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 10000);
-
-        const resp = await fetch(postUrlWithParams, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
+        const getResp = await fetch(batchPostUrl, {
+          method: "GET",
           redirect: "follow",
-          signal: controller.signal
+          signal: batchController.signal,
         });
-        clearTimeout(timeout);
-        const txt = await resp.text();
-        console.log(`[GoogleSheets Forward Delete] Response for member ${memberId || cnum || email}:`, txt);
-      } catch (postErr: any) {
-        try {
-          const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 10000);
-          const getResp = await fetch(postUrlWithParams, {
-            method: "GET",
-            redirect: "follow",
-            signal: controller.signal
-          });
-          clearTimeout(timeout);
-          console.log(`[GoogleSheets Forward Delete GET Fallback] Response for member ${memberId}:`, await getResp.text());
-        } catch (getErr: any) {
-          console.warn(`[GoogleSheets Forward Delete GET Fallback Notice]:`, getErr.message);
-        }
+        console.log(`[GoogleSheets Forward Batch Delete GET Fallback] Response:`, await getResp.text());
+      } catch (getErr: any) {
+        console.warn(`[GoogleSheets Forward Batch Delete Notice]:`, getErr.message);
       }
     }
   } catch (err: any) {
-    console.warn("[syncDeletionToGoogleSheets Notice]:", err.message);
+    console.warn(`[syncDeletionToGoogleSheets] Notice:`, err.message || err);
   }
 }
 
@@ -1289,7 +1323,7 @@ async function syncMemberToGoogleSheets(members: any | any[]) {
 
     const targetUrl = normalizeTargetUrl(sheetTargetUrl);
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10000);
+    const timeout = setTimeout(() => controller.abort(), 60000);
 
     const formattedList = memberList.map(formatMemberForSheets);
     const payload = formattedList.length === 1 ? formattedList[0] : formattedList;
@@ -1492,7 +1526,7 @@ apiRouter.post("/sheets/push", async (req: Request, res: Response) => {
 
     const targetUrl = normalizeTargetUrl(webAppUrl);
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
+    const timeout = setTimeout(() => controller.abort(), 60000);
 
     const resp = await fetch(targetUrl, {
       method: "POST",
@@ -1516,20 +1550,24 @@ apiRouter.post("/sheets/push", async (req: Request, res: Response) => {
 
 apiRouter.post("/sheets/delete", async (req: Request, res: Response) => {
   try {
-    const { webAppUrl, id, email, clanMemberNumber, firstName, lastName, ids, action } = req.body;
+    const { webAppUrl, id, email, clanMemberNumber, firstName, lastName, name, names, ids, action } = req.body;
     if (!webAppUrl) {
       return res.status(400).json({ success: false, error: "Missing webAppUrl" });
     }
     const act = action || "delete";
     const targetUrl = normalizeTargetUrl(webAppUrl);
 
-    const allIds = ids && Array.isArray(ids) ? ids : [id, clanMemberNumber, email].filter(Boolean);
-    const idsParam = allIds.length > 0 ? `&ids=${encodeURIComponent(allIds.join(","))}` : "";
-    const deleteQueryParams = `?action=${encodeURIComponent(act)}&id=${encodeURIComponent(id || "")}&clanMemberNumber=${encodeURIComponent(clanMemberNumber || "")}&email=${encodeURIComponent(email || "")}${idsParam}`;
+    const allIds = ids && Array.isArray(ids) ? ids : [id, clanMemberNumber, email, name, firstName, lastName].filter(Boolean);
+    const joinedIds = allIds.join(",");
+    const idsParam = allIds.length > 0 ? `&ids=${encodeURIComponent(joinedIds)}` : "";
+    const fnParam = firstName ? `&firstName=${encodeURIComponent(firstName)}` : "";
+    const lnParam = lastName ? `&lastName=${encodeURIComponent(lastName)}` : "";
+    const nameParam = name ? `&name=${encodeURIComponent(name)}` : "";
+    const deleteQueryParams = `?action=${encodeURIComponent(act)}&id=${encodeURIComponent(joinedIds || id || name || "")}&clanMemberNumber=${encodeURIComponent(clanMemberNumber || "")}&email=${encodeURIComponent(email || "")}${fnParam}${lnParam}${nameParam}${idsParam}`;
     const urlWithParams = targetUrl.includes("?") ? `${targetUrl}&${deleteQueryParams.slice(1)}` : `${targetUrl}${deleteQueryParams}`;
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
+    const timeout = setTimeout(() => controller.abort(), 60000);
 
     let text = "";
     let parsed: any = null;
@@ -1537,11 +1575,13 @@ apiRouter.post("/sheets/delete", async (req: Request, res: Response) => {
     try {
       const payload = {
         action: act,
-        id: id || clanMemberNumber || email || "",
+        id: joinedIds || id || name || firstName || clanMemberNumber || email || "",
         clanMemberNumber: clanMemberNumber || "",
         email: email || "",
         firstName: firstName || "",
         lastName: lastName || "",
+        name: name || (firstName + " " + lastName).trim(),
+        names: names || (name ? [name] : []),
         ids: allIds,
         count: allIds.length
       };
@@ -1658,7 +1698,7 @@ apiRouter.post(["/upload/photo", "/sheets/upload-photo"], requireEditorOrAdmin, 
     if (targetUrl && targetUrl.includes("script.google.com")) {
       try {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 25000);
+        const timeout = setTimeout(() => controller.abort(), 60000);
         const resp = await fetch(targetUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1742,7 +1782,7 @@ apiRouter.post(["/sheets/test-drive", "/drive/test-auth", "/drive/test"], async 
     const driveFolderId = folderId || "1FmpGhvi2xjl8MVILRIHiGC2x6wpXg2a3";
     const testUrl = targetUrl + (targetUrl.includes("?") ? "&" : "?") + "action=testDrive&_cb=" + Date.now();
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
+    const timeout = setTimeout(() => controller.abort(), 60000);
 
     const resp = await fetch(testUrl, { method: "GET", redirect: "follow", signal: controller.signal });
     clearTimeout(timeout);
@@ -1890,7 +1930,7 @@ apiRouter.post(["/upload/migrate-local-photos", "/drive/migrate-photos", "/sheet
 
       try {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 25000);
+        const timeout = setTimeout(() => controller.abort(), 60000);
         const resp = await fetch(targetUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1958,7 +1998,7 @@ apiRouter.post(["/upload/migrate-local-photos", "/drive/migrate-photos", "/sheet
               ? `${nameSlug}_clan_photo_${member.id || Date.now()}${ext}`
               : `clan_photo_${member.id || Date.now()}${ext}`;
             const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 25000);
+            const timeout = setTimeout(() => controller.abort(), 60000);
             const resp = await fetch(targetUrl, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -2309,7 +2349,7 @@ apiRouter.post(["/sheets/fetch-csv", "/sheets/fetch-data"], async (req: Request,
     const cacheBusterUrl = fetchUrl + (fetchUrl.includes("?") ? "&" : "?") + "_cb=" + Date.now();
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 45000);
+    const timeout = setTimeout(() => controller.abort(), 60000);
 
     const resp = await fetch(cacheBusterUrl, {
       method: "GET",
@@ -2359,7 +2399,11 @@ apiRouter.post(["/sheets/fetch-csv", "/sheets/fetch-data"], async (req: Request,
       text: rawText
     });
   } catch (err: any) {
-    console.error("[Sheets Fetch Data] Error:", err.message || err);
+    if (err.name === "AbortError" || String(err.message || "").toLowerCase().includes("aborted")) {
+      console.warn("[Sheets Fetch Data] Request timed out or aborted by client (Google Apps Script slow response).");
+    } else {
+      console.error("[Sheets Fetch Data] Error:", err.message || err);
+    }
     const isAbort = err.name === "AbortError" || String(err.message || "").toLowerCase().includes("aborted");
     const errMsg = isAbort ? "Google Sheets fetch timed out. Please check your network or spreadsheet sharing permissions." : (err.message || "Failed to fetch spreadsheet data.");
     res.status(500).json({ success: false, error: errMsg });
@@ -2382,7 +2426,7 @@ apiRouter.post("/sheets/test-connection", async (req: Request, res: Response) =>
     }
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30000);
+    const timeout = setTimeout(() => controller.abort(), 60000);
 
     const start = Date.now();
     const resp = await fetch(fetchUrl, {
@@ -2430,8 +2474,6 @@ apiRouter.post("/sheets/test-connection", async (req: Request, res: Response) =>
 });
 
 // 10. Centralized Spreadsheet Configuration
-const spreadsheetConfigFile = path.resolve(process.cwd(), "data/spreadsheet_config.json");
-
 apiRouter.get("/db/spreadsheet", async (req: Request, res: Response) => {
   try {
     if (fs.existsSync(spreadsheetConfigFile)) {

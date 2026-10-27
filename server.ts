@@ -13,11 +13,11 @@ import { serverSyncSheetToApp } from "./server/sheets";
 
 dotenv.config();
 
-// Run initial server-side sheet sync immediately on startup, then poll every 10 seconds
+// Run initial server-side sheet sync immediately on startup, then poll every 3 seconds
 serverSyncSheetToApp();
 setInterval(() => {
   serverSyncSheetToApp();
-}, 10000);
+}, 3000);
 
 const app = express();
 const PORT = 3000;

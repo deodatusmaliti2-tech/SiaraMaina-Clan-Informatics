@@ -469,6 +469,33 @@
         } catch(liveErr) {}
       }
 
+      // Global Helper: Fetch all active clan members directly from Cloud Firestore
+      window.cloudFirestoreFetchAllMembers = async function() {
+        if (window._firestoreQuotaExhausted || !modDb) return null;
+        try {
+          const snapshot = await getDocs(collection(modDb, "members"));
+          const list = [];
+          snapshot.forEach(docSnap => {
+            const data = docSnap.data();
+            if (data && !data.deleted && data.active !== false && data.status !== "deleted") {
+              const mId = docSnap.id || data.id || data.recordId;
+              if (window._recentlyDeletedMemberIds && (
+                window._recentlyDeletedMemberIds.has(mId) ||
+                (data.clanMemberNumber && window._recentlyDeletedMemberIds.has(data.clanMemberNumber)) ||
+                (data.email && window._recentlyDeletedMemberIds.has(data.email))
+              )) {
+                return;
+              }
+              list.push({ ...data, id: mId, recordId: mId });
+            }
+          });
+          return list;
+        } catch(err) {
+          handleFirestoreQuotaOrError(err, "cloudFirestoreFetchAllMembers");
+          return null;
+        }
+      };
+
       // Global Helper: Save member directly to Cloud Firestore
       window.cloudFirestoreSaveMember = async function(record) {
         if (window._firestoreQuotaExhausted) return true;
@@ -5203,15 +5230,20 @@ function doGet(e) {
         var host = window.location.hostname;
         var isStaticHost = host && host.includes("github.io");
         var controller = new AbortController();
-        var timeout = setTimeout(function() { controller.abort(); }, 8000);
+        var timeout = setTimeout(function() { controller.abort(); }, 15000);
 
         var rec = memberObj || (typeof findRecord === "function" ? findRecord(id) : null) || (typeof records !== "undefined" && Array.isArray(records) ? records.find(function(r) { return r && (r.id === id || r.recordId === id); }) : null);
         var cNum = rec ? (rec.clanMemberNumber || rec["Clan Member Number"] || "") : "";
         var emailVal = email || (rec ? rec.email : "") || "";
         var firstNameVal = rec ? (rec.firstName || rec.first_name || "") : "";
+        var middleNameVal = rec ? (rec.middleName || rec.middle_name || "") : "";
         var lastNameVal = rec ? (rec.lastName || rec.last_name || "") : "";
+        var fullNameVal = name || (firstNameVal + " " + middleNameVal + " " + lastNameVal).replace(/\s+/g, " ").trim();
+        var simpleFullNameVal = (firstNameVal + " " + lastNameVal).replace(/\s+/g, " ").trim();
 
-        var idsToMatch = [id, cNum, emailVal].filter(Boolean);
+        var idsToMatch = [id, cNum, emailVal, fullNameVal, simpleFullNameVal, firstNameVal].filter(function(v) {
+          return v && !String(v).startsWith("rec_");
+        });
 
         if (!isStaticHost && typeof getBackendApiUrl === "function") {
           var res = await fetch(getBackendApiUrl("/api/sheets/delete"), {
@@ -5219,12 +5251,12 @@ function doGet(e) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               webAppUrl: webAppUrl,
-              id: id || cNum || emailVal,
+              id: idsToMatch.join(",") || id,
               clanMemberNumber: cNum,
               email: emailVal,
               firstName: firstNameVal,
               lastName: lastNameVal,
-              name: name || (firstNameVal + " " + lastNameVal).trim(),
+              name: fullNameVal,
               ids: idsToMatch,
               action: "delete"
             }),
@@ -5247,7 +5279,7 @@ function doGet(e) {
       }
     };
 
-    window.batchDeleteMembersFromGoogleWebApp = async function(ids) {
+    window.batchDeleteMembersFromGoogleWebApp = async function(ids, memberObjects) {
       if (!Array.isArray(ids) || ids.length === 0) return { success: true, count: 0 };
       var webAppUrl = window.getGoogleWebAppUrl();
       if (!webAppUrl) return { success: false, reason: "No webAppUrl configured" };
@@ -5255,18 +5287,36 @@ function doGet(e) {
         var host = window.location.hostname;
         var isStaticHost = host && host.includes("github.io");
         var controller = new AbortController();
-        var timeout = setTimeout(function() { controller.abort(); }, 12000);
+        var timeout = setTimeout(function() { controller.abort(); }, 45000);
 
         var expandedIds = new Set();
+        var recsList = Array.isArray(memberObjects) ? memberObjects : [];
         ids.forEach(function(targetId) {
           if (!targetId) return;
           expandedIds.add(String(targetId).trim());
-          var rec = (typeof findRecord === "function" ? findRecord(targetId) : null) || (typeof records !== "undefined" && Array.isArray(records) ? records.find(function(r) { return r && (r.id === targetId || r.recordId === targetId); }) : null);
+          var rec = recsList.find(function(r) { return r && (r.id === targetId || r.recordId === targetId); }) ||
+                    (typeof findRecord === "function" ? findRecord(targetId) : null) ||
+                    (typeof records !== "undefined" && Array.isArray(records) ? records.find(function(r) { return r && (r.id === targetId || r.recordId === targetId); }) : null);
           if (rec) {
+            if (rec.id && !String(rec.id).startsWith("rec_")) expandedIds.add(String(rec.id).trim());
+            if (rec.recordId && !String(rec.recordId).startsWith("rec_")) expandedIds.add(String(rec.recordId).trim());
             if (rec.clanMemberNumber) expandedIds.add(String(rec.clanMemberNumber).trim());
             if (rec["Clan Member Number"]) expandedIds.add(String(rec["Clan Member Number"]).trim());
             if (rec.email) expandedIds.add(String(rec.email).trim());
-            if (rec.firstName && rec.lastName) expandedIds.add((String(rec.firstName) + "_" + String(rec.lastName)).toLowerCase());
+            if (rec["Email Address"]) expandedIds.add(String(rec["Email Address"]).trim());
+            var fn = String(rec.firstName || rec.first_name || "").trim();
+            var mn = String(rec.middleName || rec.middle_name || "").trim();
+            var ln = String(rec.lastName || rec.last_name || "").trim();
+            var full = (fn + " " + mn + " " + ln).replace(/\s+/g, " ").trim();
+            var simpleFull = (fn + " " + ln).replace(/\s+/g, " ").trim();
+            if (full && full.length > 2) expandedIds.add(full);
+            if (simpleFull && simpleFull.length > 2) expandedIds.add(simpleFull);
+            if (fn && ln) {
+              expandedIds.add((fn + "_" + ln).toLowerCase());
+            }
+            if (fn && !rec.clanMemberNumber && !rec.email) {
+              expandedIds.add(fn);
+            }
           }
         });
         var allIdsArray = Array.from(expandedIds).filter(Boolean);
@@ -5275,18 +5325,16 @@ function doGet(e) {
           var res = await fetch(getBackendApiUrl("/api/sheets/delete"), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ webAppUrl: webAppUrl, ids: allIdsArray, action: "delete" }),
+            body: JSON.stringify({ webAppUrl: webAppUrl, id: allIdsArray.join(","), ids: allIdsArray, action: "delete" }),
             signal: controller.signal
           });
           clearTimeout(timeout);
           var data = await res.json();
-          console.log("Batch deleted " + allIdsArray.length + " identifiers from Google Sheets via Proxy:", data);
           return data;
         } else {
-          var url = webAppUrl + "?action=delete&ids=" + encodeURIComponent(allIdsArray.join(","));
+          var url = webAppUrl + "?action=delete&id=" + encodeURIComponent(allIdsArray.join(",")) + "&ids=" + encodeURIComponent(allIdsArray.join(","));
           await fetch(url, { method: "GET", mode: "no-cors", signal: controller.signal });
           clearTimeout(timeout);
-          console.log("Batch deleted " + allIdsArray.length + " identifiers from Google Sheets directly (no-cors mode)");
           return { success: true, count: allIdsArray.length };
         }
       } catch (err) {
@@ -5301,13 +5349,14 @@ function doGet(e) {
       var idMap = new Map();
       var clanNumMap = new Map();
       var emailMap = new Map();
-      var nameMap = new Map();
       var cleaned = [];
 
       list.forEach(function(r) {
         if (!r) return;
         var rId = String(r.id || r.recordId || "").trim();
-        var clanNum = String(r.clanMemberNumber || "").trim().toUpperCase();
+        var rawClan = String(r.clanMemberNumber || "").trim().toUpperCase();
+        var isExplicitClanNum = /^CLAN/i.test(rawClan) || (/^[0-9]+$/.test(rawClan) && !rawClan.includes("MALITI") && !rawClan.includes("SIARA"));
+        var clanNum = isExplicitClanNum ? rawClan : "";
         var emailKey = String(r.email || "").trim().toLowerCase();
         var fn = normalizedName(r.firstName);
         var ln = normalizedName(r.lastName);
@@ -5350,29 +5399,27 @@ function doGet(e) {
         }
         r.recordId = rId;
 
-        var nameKey = fn ? (fn + "|" + mn + "|" + (ln || "single")) : "";
-
         var existing = null;
         if (rId && idMap.has(rId)) existing = idMap.get(rId);
         else if (clanNum && clanNumMap.has(clanNum)) existing = clanNumMap.get(clanNum);
         else if (emailKey && emailMap.has(emailKey)) existing = emailMap.get(emailKey);
-        else if (nameKey && fn && ln && nameMap.has(nameKey)) existing = nameMap.get(nameKey);
 
         if (existing) {
           Object.keys(r).forEach(function(k) {
-            if (r[k] !== undefined && r[k] !== "" && r[k] !== null) {
+            if (r[k] !== undefined && r[k] !== "" && r[k] !== null && r[k] !== "Not Recorded") {
               if (k === "id" || k === "recordId") {
                 if (!existing.id) existing.id = r[k];
               } else {
-                existing[k] = r[k];
+                if (!existing[k] || existing[k] === "Not Recorded") {
+                  existing[k] = r[k];
+                }
               }
             }
           });
         } else {
-          idMap.set(rId, r);
+          if (rId) idMap.set(rId, r);
           if (clanNum) clanNumMap.set(clanNum, r);
           if (emailKey) emailMap.set(emailKey, r);
-          if (nameKey) nameMap.set(nameKey, r);
           cleaned.push(r);
         }
       });
@@ -5381,28 +5428,46 @@ function doGet(e) {
     window.deduplicateClanRecords = deduplicateClanRecords;
 
     function mergeServerAndLocalRecords(serverList, localList) {
-      var map = new Map();
-      (serverList || []).forEach(function(m) {
-        if (!m) return;
-        var mId = String(m.id || m.recordId || "").trim();
-        if (!mId) return;
-        if (m.deleted === true || m.active === false || m.status === "deleted") return;
-        if (typeof isMemberDeleted === "function" && isMemberDeleted(mId, m.email, m.clanMemberNumber, m.firstName, m.lastName)) return;
-        map.set(mId, m);
-      });
+      if (Array.isArray(serverList) && serverList.length > 0) {
+        var map = new Map();
+        serverList.forEach(function(m) {
+          if (!m) return;
+          var mId = String(m.id || m.recordId || "").trim();
+          if (!mId) return;
+          if (m.deleted === true || m.active === false || m.status === "deleted") return;
+          if (typeof isMemberDeleted === "function" && isMemberDeleted(mId, m.email, m.clanMemberNumber, m.firstName, m.lastName)) return;
+          map.set(mId, m);
+        });
+
+        // Only overlay active pending unpushed local modifications
+        if (window._pendingDebouncedMembersToPush && window._pendingDebouncedMembersToPush.size > 0) {
+          window._pendingDebouncedMembersToPush.forEach(function(pMem) {
+            if (!pMem) return;
+            var pId = String(pMem.id || pMem.recordId || "").trim();
+            if (pId) {
+              if (map.has(pId)) {
+                map.set(pId, Object.assign({}, map.get(pId), pMem));
+              } else {
+                map.set(pId, pMem);
+              }
+            }
+          });
+        }
+
+        return deduplicateClanRecords(Array.from(map.values()));
+      }
+
+      // Offline fallback when server is unreachable
+      var fallbackMap = new Map();
       (localList || []).forEach(function(m) {
         if (!m) return;
         var mId = String(m.id || m.recordId || "").trim();
         if (!mId) return;
         if (m.deleted === true || m.active === false || m.status === "deleted") return;
-        if (map.has(mId)) {
-          var sRec = map.get(mId);
-          map.set(mId, Object.assign({}, sRec, m, sRec));
-        } else {
-          map.set(mId, m);
-        }
+        if (typeof isMemberDeleted === "function" && isMemberDeleted(mId, m.email, m.clanMemberNumber, m.firstName, m.lastName)) return;
+        fallbackMap.set(mId, m);
       });
-      return deduplicateClanRecords(Array.from(map.values()));
+      return deduplicateClanRecords(Array.from(fallbackMap.values()));
     }
     window.mergeServerAndLocalRecords = mergeServerAndLocalRecords;
 
@@ -5859,6 +5924,8 @@ function doGet(e) {
           var mLn = normalizedName(mRec.lastName);
           var mMn = normalizedName(mRec.middleName);
           if (mFn && mLn) matchedMemberKeys.add("name:" + mFn + "|" + mMn + "|" + mLn);
+          if (mFn && mLn) matchedMemberKeys.add("name:" + mFn + "||" + mLn);
+          if (mFn && !mMn && !mLn) matchedMemberKeys.add("only_fn:" + mFn);
 
           if (res.isNew || res.isUpdated) {
             newlyImportedOrUpdatedMembers.push(mRec);
@@ -5891,14 +5958,23 @@ function doGet(e) {
             var fn = normalizedName(rec.firstName);
             var ln = normalizedName(rec.lastName);
             var mn = normalizedName(rec.middleName);
-            var nKey = (fn && ln) ? ("name:" + fn + "|" + mn + "|" + ln) : "";
+            var nKey1 = (fn && ln) ? ("name:" + fn + "|" + mn + "|" + ln) : "";
+            var nKey2 = (fn && ln) ? ("name:" + fn + "||" + ln) : "";
+            var onlyFnKey = (fn && !mn && !ln) ? ("only_fn:" + fn) : "";
 
             var inSheet = (rId && matchedMemberKeys.has(rId)) ||
                           (rClan && matchedMemberKeys.has(rClan)) ||
                           (rEmail && matchedMemberKeys.has(rEmail)) ||
-                          (nKey && matchedMemberKeys.has(nKey));
+                          (nKey1 && matchedMemberKeys.has(nKey1)) ||
+                          (nKey2 && matchedMemberKeys.has(nKey2)) ||
+                          (onlyFnKey && matchedMemberKeys.has(onlyFnKey));
 
-            if (!inSheet && !newlyImportedOrUpdatedMembers.some(function(m) { return m.id === rId || m.recordId === rId; })) {
+            var isRecentlySaved = false;
+            if (window._pendingDebouncedMembersToPush && rId && window._pendingDebouncedMembersToPush.has(rId)) {
+              isRecentlySaved = true;
+            }
+
+            if (!inSheet && !isRecentlySaved && !newlyImportedOrUpdatedMembers.some(function(m) { return m.id === rId || m.recordId === rId; })) {
               if (rId) {
                 deletedFromSheetIds.push(rId);
                 deletedFromSheetRecords.push(rec);
@@ -5982,11 +6058,16 @@ function doGet(e) {
         }
 
         // Authoritatively sync global records memory state and local cache with cleanRecords
-        records = cleanRecords;
+        records = deduplicateClanRecords(cleanRecords);
         if (typeof saveRecords === "function") {
           saveRecords(true);
         } else {
           localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+        }
+        if (typeof window.loadInbuiltBackendData === "function") {
+          try {
+            window.loadInbuiltBackendData(true);
+          } catch(e) {}
         }
 
         // Broadcast mutation and update views ONLY if data genuinely changed to avoid screen shaking
@@ -8839,24 +8920,16 @@ SiaraMaina Clan Council & Administration`;
               var json = await resp.json();
               var serverMembers = Array.isArray(json.members) ? json.members : (Array.isArray(json.records) ? json.records : []);
               if (Array.isArray(serverMembers)) {
-                var cleanServerMembers = serverMembers.filter(function(m) {
+                var cleanServerMembers = deduplicateClanRecords(serverMembers.filter(function(m) {
                   if (!m) return false;
                   var mId = m.id || m.recordId;
                   if (m.deleted === true || m.active === false || m.status === "deleted") return false;
-                  if (typeof isMemberDeleted === "function" && isMemberDeleted(mId, m.email, m.clanMemberNumber, m.firstName, m.lastName)) return false;
-                  if (window._recentlyDeletedMemberIds && (
-                    window._recentlyDeletedMemberIds.has(mId) || 
-                    (m.clanMemberNumber && window._recentlyDeletedMemberIds.has(m.clanMemberNumber)) ||
-                    (m.firstName && m.lastName && window._recentlyDeletedMemberIds.has(m.firstName + "_" + m.lastName))
-                  )) return false;
                   return true;
-                });
-                var localFallback = [];
-                try { localFallback = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); } catch(e) {}
-                if (typeof records !== "undefined" && Array.isArray(records) && records.length > localFallback.length) {
-                  localFallback = records;
-                }
-                records = mergeServerAndLocalRecords(cleanServerMembers, localFallback);
+                }));
+                records = cleanServerMembers;
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+                localStorage.setItem(LOCAL_DATA_UPDATED_AT_KEY, new Date().toISOString());
+                if (typeof refreshActiveClanViews === "function") refreshActiveClanViews(false);
                 loadedOk = true;
               }
             }
@@ -9123,10 +9196,14 @@ SiaraMaina Clan Council & Administration`;
         "Confirm Bulk Deletion",
         "Are you sure you want to delete " + ids.length + " selected member(s)? This will immediately remove them from active views.",
         async function() {
+          var recsToDelete = ids.map(function(id) {
+            return (typeof findRecord === "function" ? findRecord(id) : null) || (records ? records.find(function(r) { return r && (r.id === id || r.recordId === id); }) : null);
+          }).filter(Boolean);
+
           window._recentlyDeletedMemberIds = window._recentlyDeletedMemberIds || new Set();
           ids.forEach(function(id) {
             window._recentlyDeletedMemberIds.add(id);
-            var rec = typeof findRecord === "function" ? findRecord(id) : null;
+            var rec = recsToDelete.find(function(r) { return r && (r.id === id || r.recordId === id); }) || (typeof findRecord === "function" ? findRecord(id) : null);
             if (rec && rec.clanMemberNumber) window._recentlyDeletedMemberIds.add(rec.clanMemberNumber);
             if (typeof addPersistentDeletedId === "function") {
               addPersistentDeletedId(id, rec ? rec.email : "", rec ? rec.clanMemberNumber : "", rec ? rec.firstName : "", rec ? rec.lastName : "");
@@ -9170,39 +9247,54 @@ SiaraMaina Clan Council & Administration`;
             showToast("✅ Successfully deleted " + ids.length + " member(s).", "success");
           }
 
-          // Background sync
-          (async function() {
-            if (typeof window.cloudFirestoreBatchDeleteMembers === "function") {
-              try { await window.cloudFirestoreBatchDeleteMembers(ids, records); } catch(e) {}
-            } else if (typeof window.cloudFirestoreDeleteMember === "function") {
-              for (const id of ids) {
-                try { await window.cloudFirestoreDeleteMember(id, records); } catch(e) {}
+          // Concurrent authoritative sync to Google Sheets, Cloud Firestore, Express Backend and remote clients
+          Promise.allSettled([
+            // 1. Google Sheets Web App batch deletion
+            (async function() {
+              if (typeof window.batchDeleteMembersFromGoogleWebApp === "function") {
+                await window.batchDeleteMembersFromGoogleWebApp(ids, recsToDelete);
+              } else if (typeof window.deleteMemberFromGoogleWebApp === "function") {
+                await Promise.allSettled(recsToDelete.map(r => window.deleteMemberFromGoogleWebApp(r.id, r.email, fullName(r), r)));
               }
-            }
-            if (typeof window.batchDeleteMembersFromGoogleWebApp === "function") {
-              try { await window.batchDeleteMembersFromGoogleWebApp(ids); } catch(gsErr) {}
-            } else if (typeof window.deleteMemberFromGoogleWebApp === "function") {
-              for (const delId of ids) {
-                try { await window.deleteMemberFromGoogleWebApp(delId, ""); } catch(e) {}
+            })(),
+            // 2. Cloud Firestore batch deletion
+            (async function() {
+              if (typeof window.cloudFirestoreBatchDeleteMembers === "function") {
+                await window.cloudFirestoreBatchDeleteMembers(ids, records);
+              } else if (typeof window.cloudFirestoreDeleteMember === "function") {
+                await Promise.allSettled(ids.map(id => window.cloudFirestoreDeleteMember(id, records)));
               }
-            }
-            var backendUrl = typeof getBackendBaseUrl === "function" ? getBackendBaseUrl() : "";
-            if (backendUrl) {
-              try {
-                var token = localStorage.getItem("siara_session_token") || sessionStorage.getItem("siara_session_token") || "";
-                if (typeof auth !== "undefined" && auth && auth.currentUser) {
-                  try { token = await auth.currentUser.getIdToken(); } catch(e) {}
-                }
-                var headers = { "Content-Type": "application/json", "Accept": "application/json" };
-                if (token) headers["Authorization"] = "Bearer " + token;
-                await fetch(getBackendApiUrl("/api/members/batch-delete"), {
-                  method: "POST",
-                  headers: headers,
-                  body: JSON.stringify({ ids: ids, permanent: true })
-                });
-              } catch(backendErr) {}
-            }
-          })();
+            })(),
+            // 3. Express backend batch-delete API (which broadcasts doc_change to all remote browsers via SSE)
+            (async function() {
+              var token = localStorage.getItem("siara_session_token") || sessionStorage.getItem("siara_session_token") || "";
+              if (typeof auth !== "undefined" && auth && auth.currentUser) {
+                try { token = await auth.currentUser.getIdToken(); } catch(e) {}
+              }
+              var headers = { "Content-Type": "application/json", "Accept": "application/json" };
+              if (token) headers["Authorization"] = "Bearer " + token;
+              await fetch(getBackendApiUrl("/api/members/batch-delete"), {
+                method: "POST",
+                headers: headers,
+                body: JSON.stringify({ ids: ids, members: recsToDelete, permanent: true })
+              });
+            })(),
+            // 4. Cross-tab BroadcastChannel
+            (async function() {
+              if (window._clanSyncChannel) {
+                try {
+                  window._clanSyncChannel.postMessage({
+                    type: "MEMBER_DELETED",
+                    deletedIds: ids,
+                    records: records,
+                    timestamp: new Date().toISOString()
+                  });
+                } catch(bcErr) {}
+              }
+            })()
+          ]).then(function() {
+            console.log("✓ Batch deletion of " + ids.length + " members propagated to Google Sheets, Firestore, and remote browsers.");
+          });
         }
       );
     }
@@ -9282,33 +9374,55 @@ SiaraMaina Clan Council & Administration`;
             showToast("🗑️ Member deleted successfully.", "success");
           }
 
-          // 3. Asynchronously sync deletion to Cloud Firestore, Express Backend, and Google Sheets in background
-          (async function() {
-            if (typeof window.cloudFirestoreDeleteMember === "function") {
-              try { await window.cloudFirestoreDeleteMember(id, records); } catch(cfdErr) {}
-            }
-            if (typeof window.deleteMemberFromGoogleWebApp === "function") {
-              try { await window.deleteMemberFromGoogleWebApp(id, record ? record.email : "", displayName, record); } catch(gsDelErr) {}
-            }
-            if (typeof window.GoogleSheetsDB !== "undefined" && typeof window.GoogleSheetsDB.deleteMember === "function") {
-              try { await window.GoogleSheetsDB.deleteMember(id, record ? record.email : ""); } catch(gsDbErr) {}
-            }
-            var backendUrl = typeof getBackendBaseUrl === "function" ? getBackendBaseUrl() : "";
-            if (backendUrl) {
-              try {
-                var token = localStorage.getItem("siara_session_token") || sessionStorage.getItem("siara_session_token") || "";
-                if (typeof auth !== "undefined" && auth && auth.currentUser) {
-                  try { token = await auth.currentUser.getIdToken(); } catch(e) {}
-                }
-                var delHeaders = { "Accept": "application/json", "Content-Type": "application/json" };
-                if (token) delHeaders["Authorization"] = "Bearer " + token;
-                await fetch(getBackendApiUrl("/api/members?id=" + encodeURIComponent(id) + "&permanent=true"), {
-                  method: "DELETE",
-                  headers: delHeaders
-                });
-              } catch(backendErr) {}
-            }
-          })();
+          // 3. Concurrently sync deletion to Google Sheets Web App, Cloud Firestore, and Express Backend in parallel!
+          Promise.allSettled([
+            // A. Immediate Google Sheets deletion via Web App (Direct & Proxy)
+            (async function() {
+              if (typeof window.deleteMemberFromGoogleWebApp === "function") {
+                await window.deleteMemberFromGoogleWebApp(id, record ? record.email : "", displayName, record);
+              }
+              if (typeof window.GoogleSheetsDB !== "undefined" && typeof window.GoogleSheetsDB.deleteMember === "function") {
+                await window.GoogleSheetsDB.deleteMember(id, record ? record.email : "");
+              }
+            })(),
+            // B. Immediate Cloud Firestore permanent deletion
+            (async function() {
+              if (typeof window.cloudFirestoreDeleteMember === "function") {
+                await window.cloudFirestoreDeleteMember(id, records);
+              }
+            })(),
+            // C. Express backend deletion (which broadcasts doc_change to all remote browsers via SSE and forwards to Google Sheets)
+            (async function() {
+              var token = localStorage.getItem("siara_session_token") || sessionStorage.getItem("siara_session_token") || "";
+              if (typeof auth !== "undefined" && auth && auth.currentUser) {
+                try { token = await auth.currentUser.getIdToken(); } catch(e) {}
+              }
+              var delHeaders = { "Accept": "application/json", "Content-Type": "application/json" };
+              if (token) delHeaders["Authorization"] = "Bearer " + token;
+              var cNumParam = (record && record.clanMemberNumber) ? "&clanMemberNumber=" + encodeURIComponent(record.clanMemberNumber) : "";
+              var emailParam = (record && record.email) ? "&email=" + encodeURIComponent(record.email) : "";
+              await fetch(getBackendApiUrl("/api/members?id=" + encodeURIComponent(id) + "&permanent=true" + cNumParam + emailParam), {
+                method: "DELETE",
+                headers: delHeaders
+              });
+            })(),
+            // D. Cross-tab BroadcastChannel
+            (async function() {
+              if (window._clanSyncChannel) {
+                try {
+                  window._clanSyncChannel.postMessage({
+                    type: "MEMBER_DELETED",
+                    id: id,
+                    deletedIds: [id],
+                    records: records,
+                    timestamp: new Date().toISOString()
+                  });
+                } catch(bcErr) {}
+              }
+            })()
+          ]).then(function() {
+            console.log("✓ Deletion of member " + id + " fully propagated to Google Sheets, Firestore, and remote browsers.");
+          });
         }
       );
     }
@@ -10282,18 +10396,24 @@ document.getElementById("catalogueCustomSearchRow").classList.remove("visible");
 
     function toggleCatalogueCustomSearch() {
       var row = document.getElementById("catalogueCustomSearchRow");
+      if (!row) return;
       row.classList.toggle("visible");
-      document.getElementById("treeCustomRootRow").classList.remove("visible");
+      var treeRow = document.getElementById("treeCustomRootRow");
+      if (treeRow) treeRow.classList.remove("visible");
+
       if (row.classList.contains("visible")) {
         var input = document.getElementById("catalogueCustomSearchInput");
-        input.focus();
-        if (!input.value) {
-          input.value = document.getElementById("searchInput").value || "";
+        if (input) {
+          input.focus();
+          if (!input.value) {
+            var searchEl = document.getElementById("searchInput") || document.getElementById("memberSearchInput") || document.getElementById("globalSearchInput");
+            input.value = searchEl ? searchEl.value : "";
+          }
         }
       } else {
         customQuery = "";
         setVal("searchInput", "");
-showCatalogue(currentFilter);
+        if (typeof showCatalogue === "function") showCatalogue(currentFilter);
       }
     }
 
@@ -17425,13 +17545,22 @@ openPrintDialog();
     }
 
     function openCustomSearch() {
-      document.getElementById("catalogueMenu").classList.remove("open");
+      var catMenu = document.getElementById("catalogueMenu");
+      if (catMenu) catMenu.classList.remove("open");
       var row = document.getElementById("catalogueCustomSearchRow");
-      if (!row.classList.contains("visible")) toggleCatalogueCustomSearch();
-      setVal("catalogueCustomSearchInput", document.getElementById("searchInput").value || "");
-customQuery = document.getElementById("catalogueCustomSearchInput").value.trim();
-      showCatalogue("all");
-      document.getElementById("catalogueCustomSearchInput").focus();
+      if (row && !row.classList.contains("visible") && typeof toggleCatalogueCustomSearch === "function") {
+        toggleCatalogueCustomSearch();
+      }
+      var searchEl = document.getElementById("searchInput") || document.getElementById("memberSearchInput") || document.getElementById("globalSearchInput");
+      var sVal = searchEl ? searchEl.value : "";
+      if (typeof setVal === "function") setVal("catalogueCustomSearchInput", sVal);
+
+      var custInput = document.getElementById("catalogueCustomSearchInput");
+      if (custInput) {
+        customQuery = custInput.value.trim();
+        custInput.focus();
+      }
+      if (typeof showCatalogue === "function") showCatalogue("all");
     }
 
     var _customSearchDebounce = null;
@@ -17864,6 +17993,9 @@ updateAgeFields();
           window.GoogleSheetsDB.saveMember(record);
         } catch(gsDbErr) {}
       }
+      if (!window._recentlySavedMemberTimestamps) window._recentlySavedMemberTimestamps = new Map();
+      if (record && record.id) window._recentlySavedMemberTimestamps.set(String(record.id), Date.now());
+      if (record && record.recordId) window._recentlySavedMemberTimestamps.set(String(record.recordId), Date.now());
       if (typeof window.scheduleDebouncedGoogleSheetsSync === "function") {
         try {
           window.scheduleDebouncedGoogleSheetsSync(record, 1000);
@@ -24889,7 +25021,30 @@ document.getElementById("printModal").classList.add("open");
         if ("BroadcastChannel" in window) {
           window._clanSyncChannel = new BroadcastChannel("siara_clan_sync");
           window._clanSyncChannel.onmessage = function(event) {
-            if (event.data && event.data.type === "RECORDS_MUTATED" && Array.isArray(event.data.records)) {
+            if (!event || !event.data) return;
+            if (event.data.type === "MEMBER_DELETED") {
+              var delIds = Array.isArray(event.data.deletedIds) ? event.data.deletedIds : (event.data.id ? [event.data.id] : []);
+              window._recentlyDeletedMemberIds = window._recentlyDeletedMemberIds || new Set();
+              delIds.forEach(function(dId) {
+                if (dId) {
+                  window._recentlyDeletedMemberIds.add(String(dId).trim());
+                  if (typeof addPersistentDeletedId === "function") addPersistentDeletedId(String(dId).trim());
+                }
+              });
+              var delSet = new Set(delIds.map(function(s) { return String(s).trim(); }));
+              records = (records || []).filter(function(r) {
+                if (!r) return false;
+                var rId = String(r.id || r.recordId || "").trim();
+                var cNum = String(r.clanMemberNumber || "").trim().toUpperCase();
+                return !delSet.has(rId) && (!cNum || !delSet.has(cNum));
+              });
+              if (Array.isArray(event.data.records)) {
+                records = deduplicateClanRecords(event.data.records).filter(function(r) { return !delSet.has(String(r.id || r.recordId || "").trim()); });
+              }
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+              refreshActiveClanViews(false);
+              if (typeof updateMetrics === "function") updateMetrics();
+            } else if (event.data.type === "RECORDS_MUTATED" && Array.isArray(event.data.records)) {
               records = deduplicateClanRecords(event.data.records);
               localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
               if (event.data.timestamp) localStorage.setItem(LOCAL_DATA_UPDATED_AT_KEY, event.data.timestamp);
@@ -24904,7 +25059,7 @@ document.getElementById("printModal").classList.add("open");
         console.warn("[BroadcastChannel] Notice:", bcErr);
       }
 
-      // 2. Real-Time SSE broadcasts via backendApi.subscribe
+      // 2. Real-Time SSE broadcasts via backendApi.subscribe (Instant across all remote browser instances)
       api.subscribe(function(event, payload) {
         if (event === "ping") {
           if (payload && typeof payload.activeNodes === "number") {
@@ -24915,6 +25070,82 @@ document.getElementById("printModal").classList.add("open");
             updateSyncNodesDisplay(payload.activeNodes, null);
           }
         } else if (event === "doc_change" && payload) {
+          // A. Authoritative Member Deletion Event (Instant propagation to all remote browser tabs)
+          if (payload.action === "DELETE" || payload.action === "BATCH_DELETED" || payload.action === "PERMANENT_DELETION") {
+            var rawDeletedIds = [];
+            if (payload.id) rawDeletedIds.push(String(payload.id).trim());
+            if (Array.isArray(payload.ids)) payload.ids.forEach(function(i) { if (i) rawDeletedIds.push(String(i).trim()); });
+            if (Array.isArray(payload.deletedIds)) payload.deletedIds.forEach(function(i) { if (i) rawDeletedIds.push(String(i).trim()); });
+
+            window._recentlyDeletedMemberIds = window._recentlyDeletedMemberIds || new Set();
+            rawDeletedIds.forEach(function(dId) {
+              window._recentlyDeletedMemberIds.add(dId);
+              if (typeof addPersistentDeletedId === "function") {
+                addPersistentDeletedId(dId);
+              }
+            });
+
+            var delSet = new Set(rawDeletedIds);
+            var hadMember = false;
+
+            // Immediately purge deleted member(s) from local in-memory records
+            records = (records || []).filter(function(r) {
+              if (!r) return false;
+              var rId = String(r.id || r.recordId || "").trim();
+              var cNum = String(r.clanMemberNumber || "").trim().toUpperCase();
+              if (delSet.has(rId) || (cNum && delSet.has(cNum))) {
+                hadMember = true;
+                return false;
+              }
+              return true;
+            });
+
+            // Clean relational pointers (fatherId, motherId, spouseId, siblingIds)
+            records.forEach(function(item) {
+              rawDeletedIds.forEach(function(dId) {
+                if (item.fatherId === dId) item.fatherId = "";
+                if (item.motherId === dId) item.motherId = "";
+                if (item.spouseId === dId) item.spouseId = "";
+                if (Array.isArray(item.siblingIds)) {
+                  item.siblingIds = item.siblingIds.filter(function(sid) { return sid !== dId; });
+                }
+              });
+            });
+
+            // If updated active records array was provided by server broadcast, use it
+            if (Array.isArray(payload.records)) {
+              var cleanAuth = deduplicateClanRecords(payload.records);
+              records = cleanAuth.filter(function(r) {
+                var rId = String(r.id || r.recordId || "").trim();
+                return !delSet.has(rId);
+              });
+            }
+
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+            localStorage.setItem(LOCAL_DATA_UPDATED_AT_KEY, payload.timestamp || new Date().toISOString());
+
+            // Close any open profile drawer or modal currently displaying the deleted member
+            try {
+              var curDrawerId = window._currentViewingMemberId || (window._currentEditingMember ? window._currentEditingMember.id : "");
+              if (curDrawerId && (delSet.has(curDrawerId) || rawDeletedIds.includes(curDrawerId))) {
+                if (typeof closeProfileDrawer === "function") closeProfileDrawer();
+                if (typeof closeModal === "function") closeModal("editMemberModal");
+              }
+            } catch(e) {}
+
+            if (typeof refreshActiveClanViews === "function") {
+              refreshActiveClanViews(false);
+            }
+            if (typeof updateMetrics === "function") {
+              updateMetrics();
+            }
+            if (hadMember && typeof showToast === "function") {
+              showToast("🗑️ Member deleted remotely. All views synchronized.", "info");
+            }
+            return;
+          }
+
+          // B. Document Mutation / Set Event
           if (payload.collection === "records" || payload.collection === "members") {
             var incomingRecords = null;
             if (Array.isArray(payload.records)) {
@@ -24952,6 +25183,21 @@ document.getElementById("printModal").classList.add("open");
             }
           }
         } else if (event === "sync_pulse" && payload) {
+          if (payload.action === "MEMBER_DELETED" || payload.action === "PERMANENT_DELETION" || payload.action === "BATCH_DELETED") {
+            var pIds = Array.isArray(payload.deletedIds) ? payload.deletedIds : (payload.id ? [payload.id] : []);
+            if (pIds.length > 0) {
+              window._recentlyDeletedMemberIds = window._recentlyDeletedMemberIds || new Set();
+              pIds.forEach(function(pid) {
+                window._recentlyDeletedMemberIds.add(String(pid).trim());
+                if (typeof addPersistentDeletedId === "function") addPersistentDeletedId(String(pid).trim());
+              });
+              var pSet = new Set(pIds.map(function(s) { return String(s).trim(); }));
+              records = (records || []).filter(function(r) { return r && !pSet.has(String(r.id || r.recordId || "").trim()); });
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+              if (typeof refreshActiveClanViews === "function") refreshActiveClanViews(false);
+              if (typeof updateMetrics === "function") updateMetrics();
+            }
+          }
           if (typeof logSyncEvent === "function") {
             logSyncEvent("📡 In-built backup snapshot created: " + (payload.filename || ""));
           }
@@ -27099,8 +27345,8 @@ document.getElementById("printModal").classList.add("open");
       }
     }
 
-    // Background auto-sync check interval (every 15 seconds) with payload checksum diffing to conserve data
-    window._sheetsAutoSyncTimer = setInterval(doSilentSync, 15000);
+    // Background auto-sync check interval (every 5 seconds) with payload checksum diffing to conserve data
+    window._sheetsAutoSyncTimer = setInterval(doSilentSync, 5000);
 
     // Only flush when reconnecting online IF there were pending changes queued while offline
     window.addEventListener("online", function() {
@@ -27112,7 +27358,7 @@ document.getElementById("printModal").classList.add("open");
     // Run one initial background check on startup after 4 seconds of inactivity if connected
     if (!window.isSheetsAutoSyncPaused()) {
       setTimeout(function() {
-        var url = localStorage.getItem("siara_google_sheet_url") || localStorage.getItem("siara_google_webapp_url") || "";
+        var url = localStorage.getItem("siara_google_sheet_url") || localStorage.getItem("siara_google_webapp_url") || (typeof getGoogleWebAppUrl === "function" ? getGoogleWebAppUrl() : "");
         if (url && typeof syncFromGoogleSheetUrl === "function") {
           syncFromGoogleSheetUrl({ silent: true }).catch(function() {});
         }
@@ -27219,6 +27465,15 @@ document.getElementById("printModal").classList.add("open");
 
     // Load authoritative records from Cloud Firestore backend
     await loadInbuiltBackendData();
+
+    // Trigger immediate silent sync with Google Sheets on app boot without needing manual click
+    if (typeof syncFromGoogleSheetUrl === "function") {
+      try {
+        await syncFromGoogleSheetUrl({ silent: true });
+      } catch(bootSyncErr) {
+        console.warn("[Startup Boot Sync] Notice:", bootSyncErr);
+      }
+    }
 
     // Initialize SSE real-time stream
     if (window.backendApi && typeof window.backendApi.initRealtimeStream === "function") {

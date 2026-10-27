@@ -232,25 +232,17 @@ export function unrecordDeletion(id: string) {
   writeJsonFile(rootDeletedIdsJsonPath, filtered);
 }
 
-export function isMemberIdDeleted(id?: string, clanNum?: string, email?: string, firstName?: string, lastName?: string): boolean {
+export function isMemberIdDeleted(id?: string, clanNum?: string, email?: string): boolean {
   const list = getDeletedRegistry();
   const idStr = String(id || "").trim();
-  const clanStr = String(clanNum || "").trim().toUpperCase();
+  const rawClan = String(clanNum || "").trim().toUpperCase();
+  const clanStr = (/^CLAN/i.test(rawClan) || (/^[0-9]+$/.test(rawClan) && !rawClan.includes("MALITI"))) ? rawClan : "";
   const emailStr = String(email || "").trim().toLowerCase();
-  const fnStr = String(firstName || "").trim().toLowerCase();
-  const lnStr = String(lastName || "").trim().toLowerCase();
-  const nameKey = (fnStr && lnStr) ? `${fnStr}_${lnStr}` : "";
 
   return list.some(d => {
     if (idStr && d.id && String(d.id).trim() === idStr) return true;
     if (clanStr && d.clanMemberNumber && String(d.clanMemberNumber).trim().toUpperCase() === clanStr) return true;
     if (emailStr && d.email && String(d.email).trim().toLowerCase() === emailStr) return true;
-    if (nameKey) {
-      if (d.nameKey && d.nameKey === nameKey) return true;
-      const dFn = String(d.firstName || "").trim().toLowerCase();
-      const dLn = String(d.lastName || "").trim().toLowerCase();
-      if (dFn && dLn && `${dFn}_${dLn}` === nameKey) return true;
-    }
     return false;
   });
 }
@@ -360,44 +352,36 @@ export function generateStableMemberId(raw: any): string {
 export function deduplicateMembersList(list: ClanMemberRecord[]): ClanMemberRecord[] {
   if (!Array.isArray(list)) return [];
   const idMap = new Map<string, ClanMemberRecord>();
-  const nameMap = new Map<string, ClanMemberRecord>();
   const clanMap = new Map<string, ClanMemberRecord>();
   const emailMap = new Map<string, ClanMemberRecord>();
-  const phoneMap = new Map<string, ClanMemberRecord>();
   const cleaned: ClanMemberRecord[] = [];
 
   list.forEach(m => {
     if (!m) return;
     const mId = String(m.id || m.recordId || "").trim();
-    const clanNum = String(m.clanMemberNumber || "").trim().toUpperCase();
+    const rawClan = String(m.clanMemberNumber || "").trim().toUpperCase();
+    const isExplicitClanNum = /^CLAN/i.test(rawClan) || (/^[0-9]+$/.test(rawClan) && !rawClan.includes("MALITI") && !rawClan.includes("SIARA"));
+    const clanNum = isExplicitClanNum ? rawClan : "";
     const emailKey = String(m.email || "").trim().toLowerCase();
-    const phoneKey = String(m.phone || m.whatsapp || "").replace(/\D/g, "");
-    const fn = String(m.firstName || "").trim().toLowerCase();
-    const mn = String(m.middleName || "").trim().toLowerCase();
-    const ln = String(m.lastName || "").trim().toLowerCase();
-    const branch = String(m.branchType || "heritage").trim().toLowerCase();
-    const nameKey = ln ? (mn ? `${fn}_${mn}_${ln}` : `${fn}_${ln}`) : `${fn}_single_${branch}`;
 
     let existing: ClanMemberRecord | null = null;
     if (mId && idMap.has(mId)) existing = idMap.get(mId)!;
     else if (clanNum && clanMap.has(clanNum)) existing = clanMap.get(clanNum)!;
     else if (emailKey && emailMap.has(emailKey)) existing = emailMap.get(emailKey)!;
-    else if (nameKey && fn && ln && nameMap.has(nameKey)) existing = nameMap.get(nameKey)!;
-    else if (phoneKey && phoneKey.length >= 7 && phoneMap.has(phoneKey)) existing = phoneMap.get(phoneKey)!;
 
     if (existing) {
       Object.keys(m).forEach(k => {
         const val = (m as any)[k];
-        if (val !== undefined && val !== "" && val !== null && !(existing as any)[k]) {
-          (existing as any)[k] = val;
+        if (val !== undefined && val !== "" && val !== null && val !== "Not Recorded") {
+          if (!(existing as any)[k] || (existing as any)[k] === "Not Recorded") {
+            (existing as any)[k] = val;
+          }
         }
       });
     } else {
       if (mId) idMap.set(mId, m);
       if (clanNum) clanMap.set(clanNum, m);
       if (emailKey) emailMap.set(emailKey, m);
-      if (nameKey) nameMap.set(nameKey, m);
-      if (phoneKey && phoneKey.length >= 7) phoneMap.set(phoneKey, m);
       cleaned.push(m);
     }
   });
@@ -835,7 +819,9 @@ export const dbEngine = {
       const idKey = m.id || m.recordId;
       if (idKey) map.set(idKey, m);
 
-      const cNum = String(m.clanMemberNumber || "").trim().toUpperCase();
+      const rawClan = String(m.clanMemberNumber || "").trim().toUpperCase();
+      const isExplicitClanNum = /^CLAN/i.test(rawClan) || (/^[0-9]+$/.test(rawClan) && !rawClan.includes("MALITI") && !rawClan.includes("SIARA") && !rawClan.includes("MAINA"));
+      const cNum = isExplicitClanNum ? rawClan : "";
       if (cNum) clanNumMap.set(cNum, m);
 
       const em = String(m.email || "").trim().toLowerCase();
@@ -846,8 +832,8 @@ export const dbEngine = {
       const mn = String(m.middleName || "").trim().toLowerCase();
 
       if (fn && ln) {
-        nameMap.set(`${fn}_${mn}_${ln}`, m);
-        nameMap.set(`${fn}_${ln}`, m);
+        if (mn) nameMap.set(`${fn}_${mn}_${ln}`, m);
+        else nameMap.set(`${fn}_${ln}`, m);
       } else if (fn) {
         singleNameMap.set(fn, m);
       }
@@ -860,9 +846,11 @@ export const dbEngine = {
       const fn = String(raw.firstName || raw.first_name || "").trim().toLowerCase();
       const ln = String(raw.lastName || raw.last_name || "").trim().toLowerCase();
       const mn = String(raw.middleName || raw.middle_name || "").trim().toLowerCase();
-      const clanNum = String(raw.clanMemberNumber || raw.clan_member_number || "").trim().toUpperCase();
+      const rawClan = String(raw.clanMemberNumber || raw.clan_member_number || "").trim().toUpperCase();
+      const isExplicitClanNum = /^CLAN/i.test(rawClan) || (/^[0-9]+$/.test(rawClan) && !rawClan.includes("MALITI") && !rawClan.includes("SIARA") && !rawClan.includes("MAINA"));
+      const clanNum = isExplicitClanNum ? rawClan : "";
       const email = String(raw.email || "").trim().toLowerCase();
-      const nKey = fn ? (ln ? `${fn}_${ln}` : `${fn}_single`) : "";
+      const nKey = fn ? (mn ? `${fn}_${mn}_${ln}` : `${fn}_${ln}`) : "";
 
       // Strict filter: a member record MUST have at least one name (first, middle, or last) to be created or reported as a new member
       if (!fn && !mn && !ln) {

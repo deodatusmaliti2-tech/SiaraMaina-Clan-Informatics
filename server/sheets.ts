@@ -2,7 +2,7 @@ import fetch from "node-fetch";
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
-import { dbEngine, isMemberIdDeleted } from "./db";
+import { dbEngine, isMemberIdDeleted, ClanMemberRecord } from "./db";
 import { syncManager } from "./sync";
 
 const spreadsheetConfigFile = path.resolve(process.cwd(), "data/spreadsheet_config.json");
@@ -130,24 +130,36 @@ export function mapRowToClanMember(raw: Record<string, any>, index: number): Rec
 
 export async function serverSyncSheetToApp() {
   try {
-    if (!fs.existsSync(spreadsheetConfigFile)) return;
-    const config = JSON.parse(fs.readFileSync(spreadsheetConfigFile, "utf-8"));
-    const url = config.webAppUrl || config.spreadsheetId;
+    let url = "https://script.google.com/macros/s/AKfycbyLlYZ3pw4-5ENtn_wf6tInqNRAPmHCdDmzJx40g2hUPNVyK3XOcleP9_MaGqktg6V2/exec";
+    if (fs.existsSync(spreadsheetConfigFile)) {
+      try {
+        const config = JSON.parse(fs.readFileSync(spreadsheetConfigFile, "utf-8"));
+        url = config.webAppUrl || config.spreadsheetId || url;
+      } catch (e) {}
+    }
     if (!url) return;
 
     let rawRecords: Record<string, any>[] = [];
 
     if (url.includes("script.google.com/macros/s/")) {
       // Direct Google Apps Script Web App JSON Endpoint
-      const resp = await fetch(url, { headers: { Accept: "application/json" } });
-      if (!resp.ok) return;
-      const json: any = await resp.json();
-      if (Array.isArray(json)) {
-        rawRecords = json;
-      } else if (json && Array.isArray(json.members)) {
-        rawRecords = json.members;
-      } else if (json && Array.isArray(json.data)) {
-        rawRecords = json.data;
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 45000);
+      try {
+        const resp = await fetch(url, { headers: { Accept: "application/json" }, signal: controller.signal });
+        clearTimeout(timeout);
+        if (!resp.ok) return;
+        const json: any = await resp.json();
+        if (Array.isArray(json)) {
+          rawRecords = json;
+        } else if (json && Array.isArray(json.members)) {
+          rawRecords = json.members;
+        } else if (json && Array.isArray(json.data)) {
+          rawRecords = json.data;
+        }
+      } catch (e) {
+        clearTimeout(timeout);
+        return;
       }
     } else if (url.includes("docs.google.com/spreadsheets")) {
       // Google Sheets GViz or CSV export endpoint
@@ -194,24 +206,109 @@ export async function serverSyncSheetToApp() {
       return; // No changes detected
     }
 
+    // 1. Detect members removed/deleted from the Google Sheet
+    const currentActiveMembers = await dbEngine.getMembers(false);
+    if (currentActiveMembers.length > 0 && validMembers.length > 0) {
+      const sheetIdentSet = new Set<string>();
+      validMembers.forEach((m) => {
+        if (m.id) sheetIdentSet.add(String(m.id).toLowerCase().trim());
+        if (m.recordId) sheetIdentSet.add(String(m.recordId).toLowerCase().trim());
+        if (m.clanMemberNumber) sheetIdentSet.add(String(m.clanMemberNumber).toLowerCase().trim());
+        if (m.email) sheetIdentSet.add(String(m.email).toLowerCase().trim());
+        if (m.firstName) {
+          const fn = String(m.firstName).toLowerCase().trim();
+          const mn = String(m.middleName || "").toLowerCase().trim();
+          const ln = String(m.lastName || "").toLowerCase().trim();
+          if (fn && ln) sheetIdentSet.add(`name:${fn}_${ln}`);
+          if (fn && mn && ln) sheetIdentSet.add(`name:${fn}_${mn}_${ln}`);
+          if (fn && !mn && !ln) sheetIdentSet.add(`only_fn:${fn}`);
+        }
+      });
+
+      const deletedFromSheet: ClanMemberRecord[] = [];
+      const now = Date.now();
+      currentActiveMembers.forEach((dbm) => {
+        const dbId = String(dbm.id || dbm.recordId || "").toLowerCase().trim();
+        const dbClan = String(dbm.clanMemberNumber || "").toLowerCase().trim();
+        const dbEmail = String(dbm.email || "").toLowerCase().trim();
+        const dbFn = String(dbm.firstName || "").toLowerCase().trim();
+        const dbMn = String(dbm.middleName || "").toLowerCase().trim();
+        const dbLn = String(dbm.lastName || "").toLowerCase().trim();
+        const dbName1 = (dbFn && dbLn) ? `name:${dbFn}_${dbLn}` : "";
+        const dbName2 = (dbFn && dbMn && dbLn) ? `name:${dbFn}_${dbMn}_${dbLn}` : "";
+        const dbOnlyFn = (dbFn && !dbMn && !dbLn) ? `only_fn:${dbFn}` : "";
+
+        const inSheet = (dbId && sheetIdentSet.has(dbId)) ||
+                        (dbClan && sheetIdentSet.has(dbClan)) ||
+                        (dbEmail && sheetIdentSet.has(dbEmail)) ||
+                        (dbName1 && sheetIdentSet.has(dbName1)) ||
+                        (dbName2 && sheetIdentSet.has(dbName2)) ||
+                        (dbOnlyFn && sheetIdentSet.has(dbOnlyFn));
+
+        if (!inSheet) {
+          deletedFromSheet.push(dbm);
+        }
+      });
+
+      // Safeguard: auto-purge if removed count is <= 40% of database to protect against corrupted partial fetches
+      if (deletedFromSheet.length > 0 && deletedFromSheet.length <= currentActiveMembers.length * 0.4) {
+        console.log(`[ServerSync] Detected ${deletedFromSheet.length} member(s) deleted from Google Sheets. Purging from DB and broadcasting to all browsers...`);
+        const deletedIds = deletedFromSheet.map((m) => m.id);
+        for (const dm of deletedFromSheet) {
+          await dbEngine.permanentDeleteMember(dm.id, "google_sheets_sync");
+        }
+
+        const remainingActive = await dbEngine.getMembers(false);
+
+        syncManager.broadcast("doc_change", {
+          action: "DELETE",
+          collection: "members",
+          ids: deletedIds,
+          deletedIds: deletedIds,
+          records: remainingActive,
+          count: remainingActive.length,
+          author: "google_sheets_sync",
+          timestamp: new Date().toISOString(),
+        });
+
+        syncManager.broadcast("sync_pulse", {
+          action: "BATCH_DELETED",
+          ids: deletedIds,
+          deletedIds: deletedIds,
+          count: remainingActive.length,
+          timestamp: new Date().toISOString(),
+        });
+      }
+    }
+
     const result = await dbEngine.importMembersBatch(validMembers, "server_autosync");
     lastSheetSyncSignature = hash;
 
-    // Writeback disabled to prevent sheet clearing/disappearance issues
-    const newlyAssigned = [];
-
-
-
-    // Broadcast change to all connected WebSocket clients
+    // Broadcast updated active records to all connected browsers
+    const allActiveNow = await dbEngine.getMembers(false);
     syncManager.broadcast("doc_change", {
       action: "SET",
       collection: "members",
-      records: result.members,
+      records: allActiveNow,
       timestamp: new Date().toISOString(),
     });
 
-    console.log(`[ServerSync] Synced ${result.added} new, ${result.updated} updated. Total active members: ${result.members?.length || validMembers.length}.`);
+    console.log(`[ServerSync] Synced ${result.added} new, ${result.updated} updated. Total active members: ${allActiveNow.length}.`);
   } catch (e) {
     console.warn("[ServerSync] Background sync notice:", (e as any)?.message || e);
   }
 }
+
+// Continuous 3-second background sync loop to detect Google Sheets additions, edits, and deletions
+let isServerSheetSyncActive = false;
+setInterval(async () => {
+  if (isServerSheetSyncActive) return;
+  isServerSheetSyncActive = true;
+  try {
+    await serverSyncSheetToApp();
+  } catch (err) {
+    // quiet catch
+  } finally {
+    isServerSheetSyncActive = false;
+  }
+}, 3000);
