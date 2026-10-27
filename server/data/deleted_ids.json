@@ -1,0 +1,90 @@
+[
+  {
+    "id": "member-1792694448463-mk38s4",
+    "clanMemberNumber": "",
+    "email": "",
+    "firstName": "NGAZI",
+    "lastName": "",
+    "nameKey": "ngazi",
+    "deletedAt": "2026-10-22T18:42:48.510Z",
+    "deletedBy": "system"
+  },
+  {
+    "id": "member-1792694448464-tlrs7s",
+    "clanMemberNumber": "",
+    "email": "",
+    "firstName": "USIKU",
+    "lastName": "",
+    "nameKey": "usiku",
+    "deletedAt": "2026-10-22T18:42:48.511Z",
+    "deletedBy": "system"
+  },
+  {
+    "id": "member-1792694448465-tuh5ns",
+    "clanMemberNumber": "",
+    "email": "",
+    "firstName": "UPEPO",
+    "lastName": "UPEPO",
+    "nameKey": "upepo_upepo",
+    "deletedAt": "2026-10-22T18:42:48.511Z",
+    "deletedBy": "system"
+  },
+  {
+    "id": "member-1792694493576-rimzyi",
+    "clanMemberNumber": "",
+    "email": "",
+    "firstName": "NGAZI",
+    "lastName": "",
+    "nameKey": "ngazi",
+    "deletedAt": "2026-10-22T18:42:48.511Z",
+    "deletedBy": "system"
+  },
+  {
+    "id": "member-1792694493576-vz14aj",
+    "clanMemberNumber": "",
+    "email": "",
+    "firstName": "USIKU",
+    "lastName": "",
+    "nameKey": "usiku",
+    "deletedAt": "2026-10-22T18:42:48.511Z",
+    "deletedBy": "system"
+  },
+  {
+    "id": "member-1792694504991-j0coqd",
+    "clanMemberNumber": "",
+    "email": "",
+    "firstName": "USIKU",
+    "lastName": "",
+    "nameKey": "usiku",
+    "deletedAt": "2026-10-22T18:42:48.511Z",
+    "deletedBy": "system"
+  },
+  {
+    "id": "member-1792694538594-6iipex",
+    "clanMemberNumber": "",
+    "email": "",
+    "firstName": "USIKU",
+    "lastName": "",
+    "nameKey": "usiku",
+    "deletedAt": "2026-10-22T18:42:48.511Z",
+    "deletedBy": "system"
+  },
+  {
+    "id": "rec_upepo_upepo_82",
+    "clanMemberNumber": "",
+    "email": "",
+    "firstName": "UPEPO",
+    "lastName": "UPEPO",
+    "nameKey": "upepo_upepo",
+    "deletedAt": "2026-10-22T18:42:48.511Z",
+    "deletedBy": "system"
+  },
+  {
+    "id": "test_probe_123",
+    "firstName": "TEST_PROBE",
+    "lastName": "TEST",
+    "nameKey": "test_probe_test",
+    "deletedAt": "2026-10-25T08:10:02.223Z",
+    "deletedBy": "google_sheets_sync"
+  }
+]

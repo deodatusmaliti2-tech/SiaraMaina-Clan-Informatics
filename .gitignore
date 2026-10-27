@@ -1,0 +1,11 @@
+node_modules
+dist
+.wrangler
+.aistudio
+backup_before_refresh.tar.gz
+backups/
+tmp/
+server/data/logs.json
+server/data/users.json
+server/data/github_token.json
+

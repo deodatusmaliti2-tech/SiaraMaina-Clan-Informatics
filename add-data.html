@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Family Information Portal</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 400px; margin: 50px auto; padding: 20px; background-color: #f9f9f9; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input, textarea { width: 100%; padding: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+        button { background-color: #0070f3; color: white; border: none; padding: 12px 15px; cursor: pointer; width: 100%; font-size: 16px; border-radius: 4px; font-weight: bold; }
+        button:hover { background-color: #0051a8; }
+        #message { margin-top: 15px; font-weight: bold; text-align: center; }
+    </style>
+</head>
+<body>
+
+    <h2>Family Information Entry</h2>
+    
+    <!-- This is the visual form containing the fields and the button -->
+    <form id="familyForm">
+        <div class="form-group">
+            <label for="name">Name:</label>
+            <input type="text" id="name" required placeholder="Enter full name">
+        </div>
+        
+        <div class="form-group">
+            <label for="content">Information / Details:</label>
+            <textarea id="content" required placeholder="Enter family updates or details" rows="4"></textarea>
+        </div>
+        
+        <!-- Here is your submission button -->
+        <button type="submit">Submit Remotely</button>
+    </form>
+
+    <!-- This placeholder text shows the progress status to the user -->
+    <p id="message"></p>
+
+    <script src="./googleSheetsService.js"></script>
+    <script>
+        document.getElementById('familyForm').addEventListener('submit', async function(event) {
+            event.preventDefault(); 
+            
+            const submitButton = event.target.querySelector('button[type="submit"]');
+            submitButton.disabled = true; 
+            submitButton.textContent = "Submitting...";
+
+            const messageElement = document.getElementById('message');
+            messageElement.style.color = "blue";
+            messageElement.textContent = "Connecting securely to Google Sheets...";
+
+            const payload = {
+                firstName: document.getElementById('name').value,
+                narrative: document.getElementById('content').value,
+                updatedAt: new Date().toISOString()
+            };
+
+            const googleScriptUrl = 'https://script.google.com/macros/s/AKfycbxNCDYjqpfHjvLtdYyA4lGbeHoqgi96EsV3XXpShPP5dzcmpVWYlJpm6if_AVkeCMKz-A/exec';
+
+            try {
+                await fetch(googleScriptUrl, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                messageElement.style.color = "green";
+                messageElement.textContent = "🎉 Success! Data saved directly to your Google Sheet.";
+                document.getElementById('familyForm').reset();
+
+            } catch (error) {
+                messageElement.style.color = "red";
+                messageElement.textContent = "Error: " + error.message;
+            } finally {
+                submitButton.disabled = false;
+                submitButton.textContent = "Submit Remotely";
+            }
+        });
+    </script>
+</body>
+</html>
