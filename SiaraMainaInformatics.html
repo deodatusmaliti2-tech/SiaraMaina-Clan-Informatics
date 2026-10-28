@@ -162,18 +162,24 @@
     window.removePersistentDeletedId = removePersistentDeletedId;
     window.isMemberDeleted = isMemberDeleted;
 
-    // Embedded Default Master Google Sheet & Database Config for all Remote Users upon Login
+    // Embedded Master Google Sheet & Database Config for all Remote Devices & Browsers
+    window.SIARA_DEFAULT_GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbyLlYZ3pw4-5ENtn_wf6tInqNRAPmHCdDmzJx40g2hUPNVyK3XOcleP9_MaGqktg6V2/exec";
+    window.SIARA_DEFAULT_DRIVE_FOLDER_ID = "1FmpGhvi2xjl8MVILRIHiGC2x6wpXg2a3";
+
     (function() {
       try {
-        var defUrl = "https://script.google.com/macros/s/AKfycbyLlYZ3pw4-5ENtn_wf6tInqNRAPmHCdDmzJx40g2hUPNVyK3XOcleP9_MaGqktg6V2/exec";
-        var defDriveFolder = "1FmpGhvi2xjl8MVILRIHiGC2x6wpXg2a3";
-        if (!localStorage.getItem("siara_google_sheet_url")) {
+        var defUrl = window.SIARA_DEFAULT_GOOGLE_SHEET_URL;
+        var defDriveFolder = window.SIARA_DEFAULT_DRIVE_FOLDER_ID;
+        var curSheet = localStorage.getItem("siara_google_sheet_url");
+        if (!curSheet || curSheet.includes("YOUR_SHEET_ID") || curSheet === "undefined" || curSheet === "null") {
           localStorage.setItem("siara_google_sheet_url", defUrl);
         }
-        if (!localStorage.getItem("siara_google_webapp_url")) {
+        var curWebApp = localStorage.getItem("siara_google_webapp_url");
+        if (!curWebApp || curWebApp.includes("YOUR_SHEET_ID") || curWebApp === "undefined" || curWebApp === "null") {
           localStorage.setItem("siara_google_webapp_url", defUrl);
         }
-        if (!localStorage.getItem("siara_google_drive_folder_id")) {
+        var curFolder = localStorage.getItem("siara_google_drive_folder_id");
+        if (!curFolder || curFolder === "undefined" || curFolder === "null") {
           localStorage.setItem("siara_google_drive_folder_id", defDriveFolder);
         }
       } catch(e) {}
@@ -2202,7 +2208,21 @@
       transform-origin: center;
     }
   </style>
-</head>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load' , () => {
+    navigator.serviceWorker.register('./_service-worker.js')
+      .then(registration => {
+        console.log('Service Worker registered successfully with scope:', registration.scope);
+      })
+      .catch(error => {
+        console.error('Service Worker registration failed:', error);
+      });
+  });
+} else {
+  console.log('Service workers are not supported in this browser.');
+}
+</script><script src="/_websocket-interceptor.js?v=1" defer></script></head>
 
 <body>
   <section id="loginScreen" class="login-screen" aria-label="Sign in" onclick="if(event.target === this) closeLoginModal()" style="display:none !important; z-index:99999; backdrop-filter:blur(6px); background:rgba(4,31,20,0.88);">
@@ -2396,7 +2416,7 @@
           </div>
           <div class="command-group"><span class="command-label">Tools</span>
             <div class="dropdown"><button class="top-button" type="button" onclick="toggleMenu('viewMenu')">View <span aria-hidden="true">▾</span></button><div id="viewMenu" class="dropdown-menu"><button type="button" onclick="setViewStyle('card')">Card View</button><button type="button" onclick="setViewStyle('line')">Line View</button><button type="button" onclick="showGrowthDashboard()">📈 Clan Growth Analytics</button><button type="button" onclick="showMap()">Geographical Map</button><button id="spouseToggle" type="button" onclick="toggleSpouses()">Hide Spouses</button></div></div>
-            <div class="dropdown"><button class="top-button" type="button" onclick="toggleMenu('utilitiesMenu')">Utilities <span aria-hidden="true">▾</span></button><div id="utilitiesMenu" class="dropdown-menu" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); width: min(460px, calc(100vw - 24px)); max-height: 80vh; overflow-y: auto;"><button type="button" onclick="openGoogleAppsScriptModal()" style="grid-column:span 2;display:block;width:100%;text-align:left;padding:8px 12px;color:#1e40af;background:#eff6ff;font-weight:800;font-size:0.75rem;border-radius:6px;margin:4px 0;border:1px solid #bfdbfe;cursor:pointer;">⚡ Google Apps Script &amp; Drive (Step 5)</button><button type="button" onclick="showMap()">Geographical Map</button><button type="button" onclick="openRelationship()">Relationship Finder</button><button type="button" onclick="openBiography()">Biography</button><button type="button" onclick="exportCsv()">Export CSV</button><button type="button" onclick="exportPdf()">Export PDF</button><button type="button" onclick="openGoogleSheetsImportModal()" style="color:#047857; font-weight:bold;">📥 Import from Sheets</button><button type="button" onclick="openMemberInviteModal()">Send Member Info Link</button><button type="button" onclick="openBulkOutreachModal()">Bulk WhatsApp Outreach</button><button id="shareProjectButton" type="button" onclick="openProjectShare()">Share Project</button><button id="importCsvButton" type="button" onclick="document.getElementById('csvImport').click()">Import CSV</button><button id="saveProjectButton" type="button" onclick="saveProjectData()">Save Project Data</button><button id="restoreProjectButton" type="button" onclick="document.getElementById('projectImport').click()">Restore Project Data</button><button id="dropdownCloudDbBtn" type="button" onclick="openCloudDbModal()" style="grid-column:span 2;display:block;width:100%;text-align:left;padding:8px 12px;color:#065f46;background:#f0fdf4;font-weight:800;font-size:0.75rem;border-radius:6px;margin:4px 0;border:1px solid #bbf7d0;cursor:pointer;">☁️ Cloud Firestore Status</button><button id="dropdownRecycleBinBtn" type="button" onclick="openRecycleBinModal()" style="grid-column:span 2;display:block;width:100%;text-align:left;padding:8px 12px;color:#991b1b;background:#fef2f2;font-weight:800;font-size:0.75rem;border-radius:6px;margin:4px 0;border:1px solid #fecaca;cursor:pointer;">🗑️ Open Recycle Bin (<span class="recycleCount">0</span>)</button><button id="dropdownBackupBtn" type="button" onclick="openBackupDatabaseModal()" style="grid-column:span 2;display:block;width:100%;text-align:left;padding:8px 12px;color:#065f46;background:#ecfdf5;font-weight:800;font-size:0.75rem;border-radius:6px;margin:4px 0;border:1px solid #a7f3d0;cursor:pointer;">📦 Backup Database &amp; Snapshots</button><button id="saveGithubButton" type="button" onclick="synchronizeProjectDataWithGitHub()">Synchronize with GitHub</button><button id="dropdownDiagnosticsBtn" type="button" onclick="openInbuiltDiagnosticsModal()" style="grid-column:span 2;display:block;width:100%;text-align:left;padding:8px 12px;color:var(--forest);background:#edf6ef;font-weight:800;font-size:0.75rem;border-radius:6px;margin:4px 0;border:1px solid #c2dec9;cursor:pointer;">🩺 In-Built Backend Diagnostics</button><button id="userManagementDropdownBtn" type="button" onclick="openUserManagement()" style="grid-column:span 2;display:block;width:100%;background:#fff2d6;color:#854d0e;font-weight:bold;border-top:1px dashed #e9bf52;padding:8px 12px;border-radius:6px;margin:4px 0;cursor:pointer;text-align:left;font-size:0.75rem;">🛠️ User Management &amp; Role Control</button></div></div>
+            <div class="dropdown"><button class="top-button" type="button" onclick="toggleMenu('utilitiesMenu')">Utilities <span aria-hidden="true">▾</span></button><div id="utilitiesMenu" class="dropdown-menu" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); width: min(460px, calc(100vw - 24px)); max-height: 80vh; overflow-y: auto;"><button type="button" onclick="openGoogleAppsScriptModal()" style="grid-column:span 2;display:block;width:100%;text-align:left;padding:8px 12px;color:#1e40af;background:#eff6ff;font-weight:800;font-size:0.75rem;border-radius:6px;margin:4px 0;border:1px solid #bfdbfe;cursor:pointer;">⚡ Google Apps Script &amp; Drive (Step 5)</button><button type="button" onclick="showMap()">Geographical Map</button><button type="button" onclick="openRelationship()">Relationship Finder</button><button type="button" onclick="openBiography()">Biography</button><button type="button" onclick="exportCsv()">Export CSV</button><button type="button" onclick="downloadConsolidatedCsv()" style="color:#0284c7; font-weight:800; background:#f0f9ff; border:1px solid #bae6fd;">📥 Download Clean Merged CSV (179 Members)</button><button type="button" onclick="exportPdf()">Export PDF</button><button type="button" onclick="openGoogleSheetsImportModal()" style="color:#047857; font-weight:bold;">📥 Import from Sheets</button><button type="button" onclick="openMemberInviteModal()">Send Member Info Link</button><button type="button" onclick="openBulkOutreachModal()">Bulk WhatsApp Outreach</button><button id="shareProjectButton" type="button" onclick="openProjectShare()">Share Project</button><button id="importCsvButton" type="button" onclick="document.getElementById('csvImport').click()">Import CSV</button><button id="saveProjectButton" type="button" onclick="saveProjectData()">Save Project Data</button><button id="restoreProjectButton" type="button" onclick="document.getElementById('projectImport').click()">Restore Project Data</button><button id="dropdownCloudDbBtn" type="button" onclick="openCloudDbModal()" style="grid-column:span 2;display:block;width:100%;text-align:left;padding:8px 12px;color:#065f46;background:#f0fdf4;font-weight:800;font-size:0.75rem;border-radius:6px;margin:4px 0;border:1px solid #bbf7d0;cursor:pointer;">☁️ Cloud Firestore Status</button><button id="dropdownRecycleBinBtn" type="button" onclick="openRecycleBinModal()" style="grid-column:span 2;display:block;width:100%;text-align:left;padding:8px 12px;color:#991b1b;background:#fef2f2;font-weight:800;font-size:0.75rem;border-radius:6px;margin:4px 0;border:1px solid #fecaca;cursor:pointer;">🗑️ Open Recycle Bin (<span class="recycleCount">0</span>)</button><button id="dropdownBackupBtn" type="button" onclick="openBackupDatabaseModal()" style="grid-column:span 2;display:block;width:100%;text-align:left;padding:8px 12px;color:#065f46;background:#ecfdf5;font-weight:800;font-size:0.75rem;border-radius:6px;margin:4px 0;border:1px solid #a7f3d0;cursor:pointer;">📦 Backup Database &amp; Snapshots</button><button id="saveGithubButton" type="button" onclick="synchronizeProjectDataWithGitHub()">Synchronize with GitHub</button><button id="dropdownDiagnosticsBtn" type="button" onclick="openInbuiltDiagnosticsModal()" style="grid-column:span 2;display:block;width:100%;text-align:left;padding:8px 12px;color:var(--forest);background:#edf6ef;font-weight:800;font-size:0.75rem;border-radius:6px;margin:4px 0;border:1px solid #c2dec9;cursor:pointer;">🩺 In-Built Backend Diagnostics</button><button id="userManagementDropdownBtn" type="button" onclick="openUserManagement()" style="grid-column:span 2;display:block;width:100%;background:#fff2d6;color:#854d0e;font-weight:bold;border-top:1px dashed #e9bf52;padding:8px 12px;border-radius:6px;margin:4px 0;cursor:pointer;text-align:left;font-size:0.75rem;">🛠️ User Management &amp; Role Control</button></div></div>
             <button class="top-button" type="button" onclick="openDataSheetsPortal()" style="background:#0d9488; color:#fff; border:1.5px solid #14b8a6; font-weight:900; font-size:0.72rem; padding:8px 10px; border-radius:8px; cursor:pointer;" title="Open Google Sheets Data Portal to fill and edit data">📈 Data Sheets</button>
             <button id="topbarAppsScriptBtn" class="top-button" type="button" onclick="openGoogleAppsScriptModal()" style="background:#2563eb; color:#ffffff; border:1.5px solid #1d4ed8; font-weight:800; font-size:0.72rem; padding:8px 11px; border-radius:8px; cursor:pointer; display:inline-flex; align-items:center; gap:5px; box-shadow:0 2px 4px rgba(37,99,235,0.25);" title="Open Google Apps Script &amp; Google Drive Photo Deposit Setup (Step 5)">⚡ Apps Script &amp; Drive</button>
           </div>
@@ -5139,14 +5159,18 @@ function doGet(e) {
 
     window.getGoogleWebAppUrl = function() {
       var url = localStorage.getItem("siara_google_webapp_url") || "";
-      if (!url) {
+      if (!url || url.includes("YOUR_SHEET_ID")) {
         var sheetUrl = localStorage.getItem("siara_google_sheet_url") || "";
         if (sheetUrl && (sheetUrl.includes("script.google.com") || sheetUrl.startsWith("/api/sheets"))) {
           url = sheetUrl;
         }
       }
-      if (!url) {
-        url = "https://script.google.com/macros/s/AKfycbyLlYZ3pw4-5ENtn_wf6tInqNRAPmHCdDmzJx40g2hUPNVyK3XOcleP9_MaGqktg6V2/exec";
+      if (!url || url.includes("YOUR_SHEET_ID")) {
+        url = window.SIARA_DEFAULT_GOOGLE_SHEET_URL || "https://script.google.com/macros/s/AKfycbyLlYZ3pw4-5ENtn_wf6tInqNRAPmHCdDmzJx40g2hUPNVyK3XOcleP9_MaGqktg6V2/exec";
+        try {
+          localStorage.setItem("siara_google_webapp_url", url);
+          localStorage.setItem("siara_google_sheet_url", url);
+        } catch(e) {}
       }
       return url;
     };
@@ -5676,12 +5700,18 @@ function doGet(e) {
 
       var input = document.getElementById("googleSheetUrlInput");
       var url = input ? input.value.trim() : "";
-      if (!url) {
+      if (!url || url.includes("YOUR_SHEET_ID") || url.includes("...")) {
         url = localStorage.getItem("siara_google_sheet_url") || localStorage.getItem("siara_google_webapp_url") || (typeof window.getGoogleWebAppUrl === "function" ? window.getGoogleWebAppUrl() : "");
       }
-      if (!url) {
-        url = "https://script.google.com/macros/s/AKfycbyLlYZ3pw4-5ENtn_wf6tInqNRAPmHCdDmzJx40g2hUPNVyK3XOcleP9_MaGqktg6V2/exec";
-        try { localStorage.setItem("siara_google_sheet_url", url); } catch(e) {}
+      if (!url || url.includes("YOUR_SHEET_ID") || url.includes("...")) {
+        url = window.SIARA_DEFAULT_GOOGLE_SHEET_URL || "https://script.google.com/macros/s/AKfycbyLlYZ3pw4-5ENtn_wf6tInqNRAPmHCdDmzJx40g2hUPNVyK3XOcleP9_MaGqktg6V2/exec";
+        try {
+          localStorage.setItem("siara_google_sheet_url", url);
+          localStorage.setItem("siara_google_webapp_url", url);
+        } catch(e) {}
+      }
+      if (input && !input.value) {
+        input.value = url;
       }
 
       var progArea = document.getElementById("googleSheetImportProgressArea");
@@ -9809,21 +9839,48 @@ SiaraMaina Clan Council & Administration`;
 
     function biologicalGeneration(record, trail) {
       if (!record) return 1;
+      // GEN 001 is exclusively reserved for Ngowi I, the foundational clan founder
+      if (record.id === "ngowi1") return 1;
+
       var visited = trail || {};
       if (visited[record.id]) return 1;
       visited[record.id] = true;
+
+      // 1. Biological parent resolution (Father / Mother)
       var parentGenerations = [record.fatherId, record.motherId].map(function(parentId) {
         return parentId && findRecord(parentId) ? biologicalGeneration(findRecord(parentId), Object.assign({}, visited)) : 0;
       });
-      return Math.max.apply(null, parentGenerations) + 1;
+      var maxParent = Math.max.apply(null, parentGenerations);
+      if (maxParent > 0) return maxParent + 1;
+
+      // 2. Spouse generation parity for married members without direct recorded parents
+      if (record.spouseId && findRecord(record.spouseId) && !visited[record.spouseId]) {
+        var sp = findRecord(record.spouseId);
+        if (sp.fatherId || sp.motherId) {
+          return biologicalGeneration(sp, Object.assign({}, visited));
+        }
+      }
+
+      // 3. Fallback for unlinked members: default Maliti branch to GEN 011 (same generation as Vincent Joseph Maliti and siblings)
+      var branch = (record.branchType || record.familyClan || "").toLowerCase();
+      if (branch.includes("maliti")) return 11;
+      if (branch.includes("maina") || branch.includes("siara")) return 10;
+      return 10;
     }
 
     function generationNumber(record) {
       if (!record) return 1;
+      // GEN 001 is exclusively reserved for Ngowi I
+      if (record.id === "ngowi1") return 1;
       var generation = biologicalGeneration(record);
       var spouse = findRecord(record.spouseId);
-      if (spouse) generation = Math.max(generation, biologicalGeneration(spouse));
-      return generation;
+      if (spouse) {
+        var spouseBio = biologicalGeneration(spouse);
+        if (spouseBio > 1) {
+          generation = Math.max(generation, spouseBio);
+        }
+      }
+      return Math.max(2, generation);
     }
 
     function generationLabel(record) {
@@ -20631,6 +20688,17 @@ updateAgeFields();
       URL.revokeObjectURL(url);
     }
 
+    function downloadConsolidatedCsv() {
+      var link = document.createElement("a");
+      link.href = "/siara-maina-consolidated-clean.csv";
+      link.download = "siara-maina-consolidated-clean.csv";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      if (typeof showToast === "function") showToast("📥 Downloading ultra-clean consolidated clan CSV (179 unique members)...", "success");
+    }
+    window.downloadConsolidatedCsv = downloadConsolidatedCsv;
+
     function recordClanMutation(id, action, record) {
       try {
         var changelog = [];
@@ -27336,7 +27404,7 @@ document.getElementById("printModal").classList.add("open");
       if (window._isSyncingFromSheet) {
         return;
       }
-      var url = localStorage.getItem("siara_google_sheet_url") || localStorage.getItem("siara_google_webapp_url") || (typeof getGoogleWebAppUrl === "function" ? getGoogleWebAppUrl() : "");
+      var url = (typeof getGoogleWebAppUrl === "function" ? getGoogleWebAppUrl() : "") || localStorage.getItem("siara_google_sheet_url") || localStorage.getItem("siara_google_webapp_url") || (window.SIARA_DEFAULT_GOOGLE_SHEET_URL || "https://script.google.com/macros/s/AKfycbyLlYZ3pw4-5ENtn_wf6tInqNRAPmHCdDmzJx40g2hUPNVyK3XOcleP9_MaGqktg6V2/exec");
       if (!url) return;
       if (typeof syncFromGoogleSheetUrl === "function") {
         try {
@@ -27358,7 +27426,7 @@ document.getElementById("printModal").classList.add("open");
     // Run one initial background check on startup after 4 seconds of inactivity if connected
     if (!window.isSheetsAutoSyncPaused()) {
       setTimeout(function() {
-        var url = localStorage.getItem("siara_google_sheet_url") || localStorage.getItem("siara_google_webapp_url") || (typeof getGoogleWebAppUrl === "function" ? getGoogleWebAppUrl() : "");
+        var url = (typeof getGoogleWebAppUrl === "function" ? getGoogleWebAppUrl() : "") || localStorage.getItem("siara_google_sheet_url") || localStorage.getItem("siara_google_webapp_url") || (window.SIARA_DEFAULT_GOOGLE_SHEET_URL || "https://script.google.com/macros/s/AKfycbyLlYZ3pw4-5ENtn_wf6tInqNRAPmHCdDmzJx40g2hUPNVyK3XOcleP9_MaGqktg6V2/exec");
         if (url && typeof syncFromGoogleSheetUrl === "function") {
           syncFromGoogleSheetUrl({ silent: true }).catch(function() {});
         }
@@ -27367,6 +27435,42 @@ document.getElementById("printModal").classList.add("open");
   };
 
   window.addEventListener("DOMContentLoaded", async function() {
+    // 1. Ensure Embedded Master Google Sheet & Drive Config is preloaded for all remote devices
+    try {
+      var defaultUrl = window.SIARA_DEFAULT_GOOGLE_SHEET_URL || "https://script.google.com/macros/s/AKfycbyLlYZ3pw4-5ENtn_wf6tInqNRAPmHCdDmzJx40g2hUPNVyK3XOcleP9_MaGqktg6V2/exec";
+      var defaultFolder = window.SIARA_DEFAULT_DRIVE_FOLDER_ID || "1FmpGhvi2xjl8MVILRIHiGC2x6wpXg2a3";
+      
+      var curSheetUrl = localStorage.getItem("siara_google_sheet_url");
+      if (!curSheetUrl || curSheetUrl.includes("YOUR_SHEET_ID") || curSheetUrl === "undefined" || curSheetUrl === "null") {
+        localStorage.setItem("siara_google_sheet_url", defaultUrl);
+      }
+      var curWebAppUrl = localStorage.getItem("siara_google_webapp_url");
+      if (!curWebAppUrl || curWebAppUrl.includes("YOUR_SHEET_ID") || curWebAppUrl === "undefined" || curWebAppUrl === "null") {
+        localStorage.setItem("siara_google_webapp_url", defaultUrl);
+      }
+      var curFolderId = localStorage.getItem("siara_google_drive_folder_id");
+      if (!curFolderId || curFolderId === "undefined" || curFolderId === "null") {
+        localStorage.setItem("siara_google_drive_folder_id", defaultFolder);
+      }
+
+      // Query server backend for any dynamically updated spreadsheet config
+      var cfgRes = await fetch(getBackendApiUrl("/api/sheets/config"));
+      if (cfgRes.ok) {
+        var cfgData = await cfgRes.json();
+        if (cfgData && cfgData.url) {
+          localStorage.setItem("siara_google_sheet_url", cfgData.url);
+          localStorage.setItem("siara_google_webapp_url", cfgData.url);
+          window.SIARA_DEFAULT_GOOGLE_SHEET_URL = cfgData.url;
+        }
+        if (cfgData && cfgData.folderId) {
+          localStorage.setItem("siara_google_drive_folder_id", cfgData.folderId);
+          window.SIARA_DEFAULT_DRIVE_FOLDER_ID = cfgData.folderId;
+        }
+      }
+    } catch(cErr) {
+      console.warn("[Sheets Pre-Config] Notice:", cErr);
+    }
+
     try {
       if (typeof window.startAutomaticGoogleSheetsSync === "function") {
         window.startAutomaticGoogleSheetsSync();
