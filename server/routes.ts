@@ -1129,11 +1129,17 @@ apiRouter.post("/github/push", async (req: Request, res: Response) => {
     }
     fs.writeFileSync(rootMembersPath, JSON.stringify(allActiveMembers, null, 2), "utf-8");
 
-    // Ensure full application HTML is synced for GitHub Pages deployment
+    // Ensure full application HTML is synced for GitHub Pages deployment with latest embedded dataset
     const indexHtmlPath = path.resolve(process.cwd(), "index.html");
     const siaraHtmlPath = path.resolve(process.cwd(), "SiaraMainaInformatics.html");
     if (fs.existsSync(indexHtmlPath)) {
-      const indexHtmlContent = fs.readFileSync(indexHtmlPath, "utf-8");
+      let indexHtmlContent = fs.readFileSync(indexHtmlPath, "utf-8");
+      const minifiedMembers = JSON.stringify(allActiveMembers);
+      const datasetRegex = /<script id="authoritativeClanDataset" type="application\/json">[\s\S]*?<\/script>/;
+      if (datasetRegex.test(indexHtmlContent)) {
+        indexHtmlContent = indexHtmlContent.replace(datasetRegex, `<script id="authoritativeClanDataset" type="application/json">\n${minifiedMembers}\n  </script>`);
+      }
+      fs.writeFileSync(indexHtmlPath, indexHtmlContent, "utf-8");
       fs.writeFileSync(siaraHtmlPath, indexHtmlContent, "utf-8");
     }
 

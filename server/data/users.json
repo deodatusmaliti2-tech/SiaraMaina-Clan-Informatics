@@ -9,7 +9,7 @@
     "active": true,
     "pendingRoleAssignment": false,
     "createdAt": "2026-10-25T11:39:35.846Z",
-    "lastLoginAt": "2026-11-07T18:27:43.134Z"
+    "lastLoginAt": "2026-11-07T18:45:13.128Z"
   },
   {
     "uid": "user-1udbvs09",
@@ -21,7 +21,7 @@
     "active": true,
     "pendingRoleAssignment": false,
     "createdAt": "2026-10-23T07:03:57.405Z",
-    "lastLoginAt": "2026-11-07T18:27:43.134Z"
+    "lastLoginAt": "2026-11-07T18:45:13.128Z"
   },
   {
     "uid": "user-glyklkz5",
@@ -33,6 +33,6 @@
     "active": true,
     "pendingRoleAssignment": false,
     "createdAt": "2026-10-23T06:51:31.837Z",
-    "lastLoginAt": "2026-11-07T18:27:43.134Z"
+    "lastLoginAt": "2026-11-07T18:45:13.128Z"
   }
 ]
