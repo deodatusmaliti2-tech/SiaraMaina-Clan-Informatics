@@ -1,24 +1,18 @@
 {
   "project": "SiaraMaina Clan Informatics",
-  "version": "2.5.0",
-  "exportedAt": "2026-11-06T17:40:01.494Z",
+  "version": "3.0.0",
+  "exportedAt": "2026-11-07T18:46:39.755Z",
   "repository": "deodatusmaliti2-tech/SiaraMaina-Clan-Informatics",
+  "recordsCount": 183,
   "environment": "production",
-  "publishedFiles": [
-    "index.html",
-    "SiaraMainaInformatics.html",
-    "siara-maina-clan-data.json",
-    "siara-maina-users.json",
-    "siara-maina-settings.json",
-    "siara-maina-sync-logs.json"
-  ],
-  "treeStylesCount": 8,
+  "scope": "Full Application Clone: Frontend, Backend Server, Configurations, Rules, and Datasets",
   "features": {
-    "userManagement": true,
-    "githubSync": true,
-    "cloudSync": true,
-    "rbac": true,
-    "fullAppCloning": true,
-    "sphericalTreeStyle": true
+    "fullAppClone": true,
+    "eightTreeStyles": true,
+    "realtimeFirestore": true,
+    "googleSheetsBidirectionalSync": true,
+    "userManagementAndRBAC": true,
+    "customBranchPalettes": true,
+    "dynamicPrintStudio": true
   }
 }
