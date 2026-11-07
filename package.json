@@ -1,20 +1,16 @@
 {
   "name": "siaramaina-clan-informatics-new",
-  "private": true,
   "version": "1.0.0",
   "type": "module",
-  "engines": {
-    "node": "^20.19.0 || >=22.12.0"
-  },
   "scripts": {
-    "dev": "tsx server.ts",
-    "start": "tsx server.ts",
     "build": "vite build",
+    "dev": "tsx server.ts",
     "lint": "vite build",
-    "test:firestore": "node scripts/verify-firestore-connection.mjs",
-    "test:members": "node scripts/test-members-connection.mjs",
     "merge:features": "node scripts/merge-features.mjs",
-    "migrate:members": "node scripts/migrate-ledger-to-members.mjs"
+    "migrate:members": "node scripts/migrate-ledger-to-members.mjs",
+    "start": "tsx server.ts",
+    "test:firestore": "node scripts/verify-firestore-connection.mjs",
+    "test:members": "node scripts/test-members-connection.mjs"
   },
   "dependencies": {
     "@types/node-cron": "^3.0.11",
