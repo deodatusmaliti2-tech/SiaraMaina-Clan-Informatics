@@ -1,0 +1,180 @@
+[
+  {
+    "id": "member-1792694448463-mk38s4",
+    "clanMemberNumber": "",
+    "email": "",
+    "firstName": "NGAZI",
+    "lastName": "",
+    "nameKey": "ngazi",
+    "deletedAt": "2026-10-22T18:42:48.510Z",
+    "deletedBy": "system"
+  },
+  {
+    "id": "member-1792694448464-tlrs7s",
+    "clanMemberNumber": "",
+    "email": "",
+    "firstName": "USIKU",
+    "lastName": "",
+    "nameKey": "usiku",
+    "deletedAt": "2026-10-22T18:42:48.511Z",
+    "deletedBy": "system"
+  },
+  {
+    "id": "member-1792694448465-tuh5ns",
+    "clanMemberNumber": "",
+    "email": "",
+    "firstName": "UPEPO",
+    "lastName": "UPEPO",
+    "nameKey": "upepo_upepo",
+    "deletedAt": "2026-10-22T18:42:48.511Z",
+    "deletedBy": "system"
+  },
+  {
+    "id": "member-1792694493576-rimzyi",
+    "clanMemberNumber": "",
+    "email": "",
+    "firstName": "NGAZI",
+    "lastName": "",
+    "nameKey": "ngazi",
+    "deletedAt": "2026-10-22T18:42:48.511Z",
+    "deletedBy": "system"
+  },
+  {
+    "id": "member-1792694493576-vz14aj",
+    "clanMemberNumber": "",
+    "email": "",
+    "firstName": "USIKU",
+    "lastName": "",
+    "nameKey": "usiku",
+    "deletedAt": "2026-10-22T18:42:48.511Z",
+    "deletedBy": "system"
+  },
+  {
+    "id": "member-1792694504991-j0coqd",
+    "clanMemberNumber": "",
+    "email": "",
+    "firstName": "USIKU",
+    "lastName": "",
+    "nameKey": "usiku",
+    "deletedAt": "2026-10-22T18:42:48.511Z",
+    "deletedBy": "system"
+  },
+  {
+    "id": "member-1792694538594-6iipex",
+    "clanMemberNumber": "",
+    "email": "",
+    "firstName": "USIKU",
+    "lastName": "",
+    "nameKey": "usiku",
+    "deletedAt": "2026-10-22T18:42:48.511Z",
+    "deletedBy": "system"
+  },
+  {
+    "id": "rec_upepo_upepo_82",
+    "clanMemberNumber": "",
+    "email": "",
+    "firstName": "UPEPO",
+    "lastName": "UPEPO",
+    "nameKey": "upepo_upepo",
+    "deletedAt": "2026-10-22T18:42:48.511Z",
+    "deletedBy": "system"
+  },
+  {
+    "id": "batch_test_row_1",
+    "firstName": "BATCH1",
+    "deletedAt": "2026-10-27T12:25:08.678Z",
+    "deletedBy": "google_sheets_sync"
+  },
+  {
+    "id": "batch_test_row_2",
+    "firstName": "BATCH2",
+    "deletedAt": "2026-10-27T12:25:08.713Z",
+    "deletedBy": "google_sheets_sync"
+  },
+  {
+    "id": "batch_test_row_3",
+    "firstName": "BATCH3",
+    "deletedAt": "2026-10-27T12:25:08.764Z",
+    "deletedBy": "google_sheets_sync"
+  },
+  {
+    "id": "bulk_sync_test_1793103939019_8",
+    "firstName": "BULKSYNC8",
+    "lastName": "TEST",
+    "nameKey": "bulksync8_test",
+    "deletedAt": "2026-10-27T12:25:53.581Z",
+    "deletedBy": "google_sheets_sync"
+  },
+  {
+    "id": "bulk_sync_test_1793103939019_9",
+    "firstName": "BULKSYNC9",
+    "lastName": "TEST",
+    "nameKey": "bulksync9_test",
+    "deletedAt": "2026-10-27T12:25:53.613Z",
+    "deletedBy": "google_sheets_sync"
+  },
+  {
+    "id": "bulk_sync_test_1793103939019_10",
+    "firstName": "BULKSYNC10",
+    "lastName": "TEST",
+    "nameKey": "bulksync10_test",
+    "deletedAt": "2026-10-27T12:25:53.651Z",
+    "deletedBy": "google_sheets_sync"
+  },
+  {
+    "id": "bulk_sync_test_1793103939019_1",
+    "firstName": "BULKSYNC1",
+    "lastName": "TEST",
+    "nameKey": "bulksync1_test",
+    "deletedAt": "2026-10-27T12:25:55.507Z",
+    "deletedBy": "google_sheets_sync"
+  },
+  {
+    "id": "bulk_sync_test_1793103939019_2",
+    "firstName": "BULKSYNC2",
+    "lastName": "TEST",
+    "nameKey": "bulksync2_test",
+    "deletedAt": "2026-10-27T12:25:55.554Z",
+    "deletedBy": "google_sheets_sync"
+  },
+  {
+    "id": "bulk_sync_test_1793103939019_3",
+    "firstName": "BULKSYNC3",
+    "lastName": "TEST",
+    "nameKey": "bulksync3_test",
+    "deletedAt": "2026-10-27T12:25:55.581Z",
+    "deletedBy": "google_sheets_sync"
+  },
+  {
+    "id": "bulk_sync_test_1793103939019_4",
+    "firstName": "BULKSYNC4",
+    "lastName": "TEST",
+    "nameKey": "bulksync4_test",
+    "deletedAt": "2026-10-27T12:25:55.626Z",
+    "deletedBy": "google_sheets_sync"
+  },
+  {
+    "id": "bulk_sync_test_1793103939019_5",
+    "firstName": "BULKSYNC5",
+    "lastName": "TEST",
+    "nameKey": "bulksync5_test",
+    "deletedAt": "2026-10-27T12:25:55.654Z",
+    "deletedBy": "google_sheets_sync"
+  },
+  {
+    "id": "bulk_sync_test_1793103939019_6",
+    "firstName": "BULKSYNC6",
+    "lastName": "TEST",
+    "nameKey": "bulksync6_test",
+    "deletedAt": "2026-10-27T12:25:55.703Z",
+    "deletedBy": "google_sheets_sync"
+  },
+  {
+    "id": "bulk_sync_test_1793103939019_7",
+    "firstName": "BULKSYNC7",
+    "lastName": "TEST",
+    "nameKey": "bulksync7_test",
+    "deletedAt": "2026-10-27T12:25:55.736Z",
+    "deletedBy": "google_sheets_sync"
+  }
+]

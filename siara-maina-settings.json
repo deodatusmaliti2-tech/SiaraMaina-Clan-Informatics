@@ -1,0 +1,14 @@
+{
+  "project": "SiaraMaina Clan Informatics - App Configurations & Settings",
+  "exportedAt": "2026-11-06T17:40:01.494Z",
+  "lastPublishedBy": "Deodatus Maliti",
+  "settings": {
+    "viewStyle": "line",
+    "showSpouseRecords": true,
+    "currentFilter": "all",
+    "customFilter": {},
+    "customQuery": ""
+  },
+  "customBackendUrl": "",
+  "detailViewMode": "modal"
+}

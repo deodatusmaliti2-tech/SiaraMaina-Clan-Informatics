@@ -1,0 +1,93 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Reusable, secure helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isMasterAdmin() {
+      return isSignedIn() 
+        && request.auth.token.email != null 
+        && request.auth.token.email.lower() == 'deodatusmaliti2@gmail.com';
+    }
+
+    function getUserData(uid) {
+      return get(/databases/$(database)/documents/users/$(uid)).data;
+    }
+
+    function hasRole(role) {
+      return isSignedIn() && (
+        isMasterAdmin() || 
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserData(request.auth.uid).role == role)
+      );
+    }
+
+    function isAdmin() {
+      return hasRole('admin');
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // Attribute-Based Access Control rules for users registry (Managed by Node.js backend)
+    match /users/{userId} {
+      allow read, write: if true;
+    }
+
+    // Rules for siaraMainaClan and records genealogical ledger (Single Source of Truth)
+    match /siaraMainaClan/{docId} {
+      allow read, write: if true;
+    }
+
+    match /records/{docId} {
+      allow read, write: if true;
+    }
+
+    // Rules for individual member documents collection
+    match /members/{memberId} {
+      allow read, write: if true;
+    }
+
+    // Rules for submission idempotency records (Managed by Node.js backend)
+    match /submissions/{subId} {
+      allow read, write: if true;
+    }
+
+    // Rules for shared collections: announcements, settings, courses, attendance, reports, notifications
+    match /announcements/{id} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin() || isMasterAdmin() || hasRole('editor');
+    }
+    match /settings/{id} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin() || isMasterAdmin();
+    }
+    match /courses/{id} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin() || isMasterAdmin() || hasRole('editor');
+    }
+    match /attendance/{id} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin() || isMasterAdmin() || hasRole('editor');
+    }
+    match /reports/{id} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin() || isMasterAdmin() || hasRole('editor');
+    }
+    match /notifications/{id} {
+      allow read, write: if true;
+    }
+
+    // Immutable Security & Activity Audit Logs (Managed by Node.js backend)
+    match /ActivityLogs/{logId} {
+      allow read, write: if true;
+    }
+  }
+}

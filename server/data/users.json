@@ -1,0 +1,38 @@
+[
+  {
+    "uid": "8VcrC7dyZZSk3ifR7ZxGKKg4mtJ2",
+    "email": "director@researchlinktz.com",
+    "displayName": "Fadhili",
+    "role": "viewer",
+    "branch": "general",
+    "approved": true,
+    "active": true,
+    "pendingRoleAssignment": false,
+    "createdAt": "2026-10-25T11:39:35.846Z",
+    "lastLoginAt": "2026-11-07T18:24:47.218Z"
+  },
+  {
+    "uid": "user-1udbvs09",
+    "email": "dmaliti@researchlinktz.com",
+    "displayName": "Victor Maliti",
+    "role": "editor",
+    "branch": "siara",
+    "approved": true,
+    "active": true,
+    "pendingRoleAssignment": false,
+    "createdAt": "2026-10-23T07:03:57.405Z",
+    "lastLoginAt": "2026-11-07T18:24:47.218Z"
+  },
+  {
+    "uid": "user-glyklkz5",
+    "email": "deodatusmaliti2@gmail.com",
+    "displayName": "Deodatus Maliti",
+    "role": "admin",
+    "branch": "general",
+    "approved": true,
+    "active": true,
+    "pendingRoleAssignment": false,
+    "createdAt": "2026-10-23T06:51:31.837Z",
+    "lastLoginAt": "2026-11-07T18:24:47.218Z"
+  }
+]

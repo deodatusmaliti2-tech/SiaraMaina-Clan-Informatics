@@ -1,0 +1,24 @@
+{
+  "project": "SiaraMaina Clan Informatics",
+  "version": "2.5.0",
+  "exportedAt": "2026-11-06T17:40:01.494Z",
+  "repository": "deodatusmaliti2-tech/SiaraMaina-Clan-Informatics",
+  "environment": "production",
+  "publishedFiles": [
+    "index.html",
+    "SiaraMainaInformatics.html",
+    "siara-maina-clan-data.json",
+    "siara-maina-users.json",
+    "siara-maina-settings.json",
+    "siara-maina-sync-logs.json"
+  ],
+  "treeStylesCount": 8,
+  "features": {
+    "userManagement": true,
+    "githubSync": true,
+    "cloudSync": true,
+    "rbac": true,
+    "fullAppCloning": true,
+    "sphericalTreeStyle": true
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "project": "SiaraMaina Clan Informatics - User Management & Roles",
+  "exportedAt": "2026-11-06T17:40:01.494Z",
+  "count": 3,
+  "lastPublishedBy": "Deodatus Maliti",
+  "users": [
+    {
+      "updatedAt": "2026-10-25T11:33:23.637Z",
+      "roleAssignedAt": "2026-10-25T11:33:22.002Z",
+      "createdAt": "2026-10-25T11:39:35.846Z",
+      "email": "director@researchlinktz.com",
+      "active": true,
+      "roleAssignedBy": "deodatusmaliti2@gmail.com",
+      "role": "viewer",
+      "approved": true,
+      "lastLoginAt": "2026-10-25T11:39:33.451Z",
+      "branch": "general",
+      "registeredRemotely": true,
+      "pendingRoleAssignment": false,
+      "displayName": "Fadhili",
+      "uid": "8VcrC7dyZZSk3ifR7ZxGKKg4mtJ2",
+      "provisionedBy": "deodatusmaliti2@gmail.com",
+      "id": "user-em6qdyw3"
+    },
+    {
+      "active": true,
+      "role": "editor",
+      "approved": true,
+      "email": "dmaliti@researchlinktz.com",
+      "displayName": "Victor Maliti",
+      "roleAssignedBy": "deodatusmaliti2@gmail.com",
+      "branch": "siara",
+      "id": "user-1udbvs09",
+      "roleAssignedAt": "2026-10-23T07:03:57.408Z",
+      "provisionedBy": "deodatusmaliti2@gmail.com",
+      "pendingRoleAssignment": false,
+      "createdAt": "2026-10-23T07:03:57.405Z",
+      "updatedAt": "2026-10-23T07:03:57.766Z",
+      "uid": "user-1udbvs09"
+    },
+    {
+      "roleAssignedBy": "deodatusmaliti2@gmail.com",
+      "roleAssignedAt": "2026-10-23T06:57:45.460Z",
+      "branch": "general",
+      "provisionedBy": "deodatusmaliti2@gmail.com",
+      "role": "admin",
+      "uid": "user-glyklkz5",
+      "updatedAt": "2026-10-23T06:57:45.794Z",
+      "active": true,
+      "pendingRoleAssignment": false,
+      "createdAt": "2026-10-23T06:51:31.837Z",
+      "id": "user-lfeflfak",
+      "email": "deodatusmaliti2@gmail.com",
+      "displayName": "Deodatus Maliti",
+      "approved": true
+    }
+  ]
+}

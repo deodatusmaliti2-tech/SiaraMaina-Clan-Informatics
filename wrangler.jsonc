@@ -1,0 +1,21 @@
+{
+  "name": "siaramaina-clan-informatics-new1",
+  "main": "src/worker.js",
+  "workers_dev": true,
+  "compatibility_date": "2026-09-17",
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "run_worker_first": true
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "siaramaina-db",
+      "database_id": "7117dd0c-1be0-49d4-ad41-882366718a7b"
+    }
+  ],
+  "observability": {
+    "enabled": true
+  }
+}

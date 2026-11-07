@@ -1,0 +1,173 @@
+{
+  "entities": {
+    "ClanMember": {
+      "title": "Clan Member",
+      "description": "Information stored for each clan member in the private directory.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier of the clan member" },
+        "firstName": { "type": "string", "description": "First name of the member" },
+        "middleName": { "type": "string", "description": "Middle name of the member" },
+        "lastName": { "type": "string", "description": "Last name of the member" },
+        "sex": { "type": "string", "enum": ["Male", "Female", "Not Recorded"] },
+        "branchType": { "type": "string", "enum": ["heritage", "siara", "maina", "maliti"] },
+        "honorific": { "type": "string", "description": "Title or honorific" },
+        "dob": { "type": "string", "description": "Date of birth" },
+        "birthPeriod": { "type": "string", "description": "Approximate historical birth period" },
+        "placeOfBirth": { "type": "string", "description": "Place of birth" },
+        "deceased": { "type": "boolean", "description": "Whether the member is deceased" },
+        "dod": { "type": "string", "description": "Date of death" },
+        "deathAge": { "type": "string", "description": "Age at death" },
+        "causeOfDeath": { "type": "string", "description": "Cause of death" },
+        "fatherId": { "type": "string", "description": "ID of the father record" },
+        "motherId": { "type": "string", "description": "ID of the mother record" },
+        "spouseId": { "type": "string", "description": "ID of the spouse record" },
+        "maritalStatus": { "type": "string", "description": "Marital status" },
+        "education": { "type": "string", "description": "Education level" },
+        "course": { "type": "string", "description": "Course of study" },
+        "employment": { "type": "string", "description": "Employment status" },
+        "occupation": { "type": "string", "description": "Occupation" },
+        "organization": { "type": "string", "description": "Employer organization" },
+        "religion": { "type": "string", "description": "Religious affiliation" },
+        "denomination": { "type": "string", "description": "Religious denomination" },
+        "phone": { "type": "string", "description": "Phone number" },
+        "whatsapp": { "type": "string", "description": "WhatsApp number" },
+        "email": { "type": "string", "description": "Email address" },
+        "location": { "type": "string", "description": "Current location" },
+        "narrative": { "type": "string", "description": "Historical narrative or notes" },
+        "photo": { "type": "string", "description": "Base64 or URL of the member photo" }
+      }
+    },
+    "User": {
+      "title": "User",
+      "description": "Information stored for each logged-in system user.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Authentication UID" },
+        "email": { "type": "string", "description": "User email address" },
+        "displayName": { "type": "string", "description": "User display name" },
+        "role": { "type": "string", "enum": ["admin", "editor", "viewer"] },
+        "active": { "type": "boolean", "description": "Whether the user account is enabled" },
+        "createdAt": { "type": "string", "description": "Timestamp of user registration" }
+      }
+    },
+    "ActivityLog": {
+      "title": "Activity Log",
+      "description": "Security audit logs for user authentication events and administrative changes to clan records.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique log entry ID" },
+        "eventType": { "type": "string", "description": "Event classification (e.g. AUTH_LOGIN, AUTH_SIGNUP, AUTH_LOGOUT, GENEALOGY_CREATE, GENEALOGY_UPDATE, GENEALOGY_DELETE, ROLE_CHANGE)" },
+        "action": { "type": "string", "description": "Human-readable description of the action" },
+        "actorUid": { "type": "string", "description": "Firebase UID of the user who performed the action" },
+        "actorEmail": { "type": "string", "description": "Email address of the user who performed the action" },
+        "actorRole": { "type": "string", "description": "Role of the actor at the time of the action" },
+        "targetId": { "type": "string", "description": "ID or path of the target record or user" },
+        "details": { "type": "string", "description": "Additional context or metadata" },
+        "timestamp": { "type": "string", "description": "ISO timestamp of when the event occurred" }
+      },
+      "required": ["eventType", "actorEmail", "timestamp"]
+    },
+    "Submission": {
+      "title": "Submission",
+      "description": "Idempotency tracking records for submitted member operations",
+      "type": "object",
+      "properties": {
+        "memberId": { "type": "string", "description": "ID of the created member" },
+        "createdAt": { "type": "string", "description": "ISO timestamp of submission" },
+        "createdBy": { "type": "string", "description": "Email of user submitting" }
+      }
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "System alerts and administrator notifications for remote user registrations",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique notification ID" },
+        "type": { "type": "string", "description": "Classification of notification e.g. NEW_USER_REGISTRATION" },
+        "title": { "type": "string", "description": "Notification title" },
+        "message": { "type": "string", "description": "Notification body" },
+        "userUid": { "type": "string", "description": "UID of registered user" },
+        "userEmail": { "type": "string", "description": "Email of registered user" },
+        "displayName": { "type": "string", "description": "Display name of registered user" },
+        "role": { "type": "string", "description": "Default role assigned" },
+        "status": { "type": "string", "description": "Status of notification" },
+        "read": { "type": "boolean", "description": "Whether the alert has been viewed" },
+        "timestamp": { "type": "string", "description": "ISO timestamp" }
+      }
+    }
+  },
+  "firestore": {
+    "/siaraMainaClan/records": {
+      "schema": "ClanMember",
+      "description": "Entire records database containing the combined genealogical ledger"
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User registry containing system permission roles"
+    },
+    "/ActivityLogs/{logId}": {
+      "schema": "ActivityLog",
+      "description": "Security monitoring collection for authentication events and admin mutations"
+    },
+    "/members/{memberId}": {
+      "schema": "ClanMember",
+      "description": "Individual clan member profile documents repository"
+    },
+    "/submissions/{subId}": {
+      "schema": "Submission",
+      "description": "Idempotency records tracking member form submissions to avoid duplicates"
+    },
+    "/notifications/{id}": {
+      "schema": "Notification",
+      "description": "System alerts and administrator notifications for remote user registrations"
+    }
+  },
+  "indexes": [
+    {
+      "collectionGroup": "members",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "deleted", "order": "ASCENDING" },
+        { "fieldPath": "active", "order": "ASCENDING" },
+        { "fieldPath": "branchType", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "members",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "deleted", "order": "ASCENDING" },
+        { "fieldPath": "active", "order": "ASCENDING" },
+        { "fieldPath": "dob", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "members",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "deleted", "order": "ASCENDING" },
+        { "fieldPath": "branchType", "order": "ASCENDING" },
+        { "fieldPath": "dob", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "members",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "active", "order": "ASCENDING" },
+        { "fieldPath": "branchType", "order": "ASCENDING" },
+        { "fieldPath": "dob", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "members",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "deleted", "order": "ASCENDING" },
+        { "fieldPath": "active", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    }
+  ]
+}
