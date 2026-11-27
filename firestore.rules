@@ -1,0 +1,309 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Default-Deny Catch-All
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 2. Reusable Hardened Primitives
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedEmail() {
+      return isSignedIn() && request.auth.token.email_verified == true && request.auth.token.email != null;
+    }
+
+    function isMasterAdmin() {
+      return isVerifiedEmail() && request.auth.token.email.lower() == 'deodatusmaliti2@gmail.com';
+    }
+
+    function getUserDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function userDocExists() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function hasRole(role) {
+      return isSignedIn() && (
+        isMasterAdmin() ||
+        (userDocExists() && getUserDoc().role == role && getUserDoc().active != false)
+      );
+    }
+
+    function isAdmin() {
+      return isMasterAdmin() || hasRole('admin');
+    }
+
+    function isEditorOrAdmin() {
+      return isAdmin() || hasRole('editor');
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isOptString(data, key, maxLen) {
+      return !(key in data) || (data[key] is string && data[key].size() <= maxLen);
+    }
+
+    function isOptBool(data, key) {
+      return !(key in data) || (data[key] is bool);
+    }
+
+    // 3. Entity Validation Blueprints
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'role'])
+        && data.keys().hasOnly([
+          'uid', 'id', 'email', 'displayName', 'role', 'branch', 'institution',
+          'approved', 'active', 'status', 'provider', 'phone', 'location',
+          'bio', 'photoURL', 'pendingRoleAssignment', 'registeredRemotely',
+          'createdAt', 'lastLoginAt', 'lastLogin', 'updatedAt', 'updatedBy'
+        ])
+        && isValidId(data.uid)
+        && data.email is string && data.email.size() >= 3 && data.email.size() <= 254
+        && data.role in ['admin', 'editor', 'viewer']
+        && isOptString(data, 'id', 128)
+        && isOptString(data, 'displayName', 160)
+        && isOptString(data, 'branch', 64)
+        && isOptString(data, 'institution', 160)
+        && isOptString(data, 'status', 32)
+        && isOptString(data, 'provider', 32)
+        && isOptBool(data, 'approved')
+        && isOptBool(data, 'active')
+        && isOptString(data, 'phone', 64)
+        && isOptString(data, 'location', 200)
+        && isOptString(data, 'bio', 2000)
+        && isOptString(data, 'photoURL', 500000)
+        && isOptBool(data, 'pendingRoleAssignment')
+        && isOptBool(data, 'registeredRemotely')
+        && isOptString(data, 'createdAt', 64)
+        && isOptString(data, 'lastLoginAt', 64)
+        && isOptString(data, 'lastLogin', 64)
+        && isOptString(data, 'updatedBy', 254);
+    }
+
+    function isValidClanMember(data) {
+      return data.keys().hasAll(['firstName'])
+        && isOptString(data, 'id', 128)
+        && isOptString(data, 'recordId', 128)
+        && isOptString(data, 'clanMemberNumber', 64)
+        && data.firstName is string && data.firstName.size() <= 120
+        && isOptString(data, 'middleName', 120)
+        && isOptString(data, 'lastName', 120)
+        && isOptString(data, 'sex', 32)
+        && isOptString(data, 'branchType', 64)
+        && isOptString(data, 'honorific', 64)
+        && isOptString(data, 'dob', 64)
+        && isOptString(data, 'birthPeriod', 120)
+        && isOptString(data, 'placeOfBirth', 160)
+        && isOptBool(data, 'deceased')
+        && isOptString(data, 'dod', 64)
+        && isOptString(data, 'deathAge', 32)
+        && isOptString(data, 'causeOfDeath', 240)
+        && isOptString(data, 'fatherId', 128)
+        && isOptString(data, 'motherId', 128)
+        && isOptString(data, 'spouseId', 128)
+        && (!( 'siblingIds' in data ) || (
+          data.siblingIds is list && data.siblingIds.size() <= 50 &&
+          (data.siblingIds.size() == 0 || data.siblingIds[0] is string)
+        ))
+        && isOptString(data, 'maritalStatus', 64)
+        && isOptString(data, 'education', 160)
+        && isOptString(data, 'course', 160)
+        && isOptString(data, 'employment', 120)
+        && isOptString(data, 'occupation', 160)
+        && isOptString(data, 'organization', 160)
+        && isOptString(data, 'religion', 120)
+        && isOptString(data, 'denomination', 120)
+        && isOptString(data, 'phone', 64)
+        && isOptString(data, 'whatsapp', 64)
+        && isOptString(data, 'email', 254)
+        && isOptString(data, 'location', 200)
+        && isOptString(data, 'narrative', 20000)
+        && isOptString(data, 'photo', 500000)
+        && isOptBool(data, 'active')
+        && isOptBool(data, 'deleted')
+        && isOptString(data, 'createdBy', 254)
+        && isOptString(data, 'lastModifiedBy', 254);
+    }
+
+    function isValidActivityLog(data) {
+      return data.keys().hasAll(['eventType', 'actorEmail', 'timestamp'])
+        && data.keys().hasOnly([
+          'id', 'eventType', 'action', 'actorUid', 'actorEmail', 'actorRole', 'targetId', 'details', 'timestamp'
+        ])
+        && data.eventType is string && data.eventType.size() <= 80
+        && data.actorEmail is string && data.actorEmail.size() <= 254
+        && data.timestamp is string && data.timestamp.size() <= 64
+        && isOptString(data, 'id', 128)
+        && isOptString(data, 'action', 500)
+        && isOptString(data, 'actorUid', 128)
+        && isOptString(data, 'actorRole', 32)
+        && isOptString(data, 'targetId', 128)
+        && isOptString(data, 'details', 4000);
+    }
+
+    function isValidNotification(data) {
+      return data.keys().hasAll(['type', 'userUid'])
+        && data.keys().hasOnly([
+          'id', 'type', 'title', 'message', 'userUid', 'userEmail',
+          'displayName', 'branch', 'role', 'status', 'read', 'createdAt', 'timestamp'
+        ])
+        && data.type is string && data.type.size() <= 64
+        && isValidId(data.userUid)
+        && isOptString(data, 'userEmail', 254)
+        && isOptString(data, 'displayName', 160)
+        && isOptString(data, 'branch', 64)
+        && isOptString(data, 'role', 32)
+        && isOptBool(data, 'read');
+    }
+
+    // 4. Collection Rules
+
+    // Users Registry (Strict PII Isolation & Anti-Escalation)
+    match /users/{userId} {
+      allow get: if isValidId(userId) && isSignedIn() && (isOwner(userId) || isAdmin());
+      allow list: if isSignedIn() && (isAdmin() || existing().uid == request.auth.uid);
+      allow create: if isSignedIn()
+        && isValidId(userId)
+        && isValidUser(incoming())
+        && (
+          isAdmin() ||
+          (
+            isOwner(userId)
+            && incoming().uid == request.auth.uid
+            && incoming().role == 'viewer'
+            && (!('approved' in incoming()) || incoming().approved == false)
+          )
+        );
+      allow update: if isSignedIn()
+        && isValidId(userId)
+        && isValidUser(incoming())
+        && (
+          isAdmin() ||
+          (
+            isOwner(userId)
+            && incoming().uid == existing().uid
+            && incoming().role == existing().role
+            && (!('approved' in incoming()) || incoming().approved == existing().approved)
+            && (!('active' in incoming()) || incoming().active == existing().active)
+            && incoming().diff(existing()).affectedKeys().hasOnly([
+              'displayName', 'phone', 'location', 'bio', 'photoURL', 'branch', 'lastLoginAt', 'updatedAt'
+            ])
+          )
+        );
+      allow delete: if isValidId(userId) && isAdmin();
+    }
+
+    // Individual Clan Member Documents Repository
+    match /members/{memberId} {
+      allow get: if isValidId(memberId) && isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(memberId) && isValidClanMember(incoming()) && isEditorOrAdmin();
+      allow update: if isSignedIn() && isValidId(memberId) && isValidClanMember(incoming()) && isEditorOrAdmin();
+      allow delete: if isValidId(memberId) && isAdmin();
+    }
+
+    // Consolidated Genealogical Ledger
+    match /siaraMainaClan/{docId} {
+      allow get: if isValidId(docId) && isSignedIn();
+      allow list: if false;
+      allow create, update: if isValidId(docId) && isEditorOrAdmin();
+      allow delete: if isValidId(docId) && isAdmin();
+    }
+
+    match /records/{docId} {
+      allow get: if isValidId(docId) && isSignedIn();
+      allow list: if false;
+      allow create, update: if isValidId(docId) && isEditorOrAdmin();
+      allow delete: if isValidId(docId) && isAdmin();
+    }
+
+    // Submission Idempotency Records
+    match /submissions/{subId} {
+      allow get: if isValidId(subId) && isSignedIn() && (isAdmin() || existing().createdBy == request.auth.token.email);
+      allow list: if isSignedIn() && (isAdmin() || existing().createdBy == request.auth.token.email);
+      allow create, update: if isValidId(subId) && isEditorOrAdmin() && incoming().keys().hasAll(['memberId', 'createdAt', 'createdBy']);
+      allow delete: if isValidId(subId) && isAdmin();
+    }
+
+    // Immutable Security & Activity Audit Logs
+    match /ActivityLogs/{logId} {
+      allow get: if isValidId(logId) && isSignedIn() && (isAdmin() || existing().actorUid == request.auth.uid);
+      allow list: if isSignedIn() && (isAdmin() || existing().actorUid == request.auth.uid);
+      allow create: if isSignedIn()
+        && isValidId(logId)
+        && isValidActivityLog(incoming())
+        && (isAdmin() || incoming().actorUid == request.auth.uid);
+      allow update, delete: if false;
+    }
+
+    // System Notifications
+    match /notifications/{notifId} {
+      allow get: if isValidId(notifId) && isSignedIn() && (isAdmin() || existing().userUid == request.auth.uid);
+      allow list: if isSignedIn() && (isAdmin() || existing().userUid == request.auth.uid);
+      allow create: if isSignedIn()
+        && isValidId(notifId)
+        && isValidNotification(incoming())
+        && (isAdmin() || incoming().userUid == request.auth.uid);
+      allow update, delete: if isValidId(notifId) && isAdmin();
+    }
+
+    // Shared Clan Collections
+    match /announcements/{docId} {
+      allow get: if isValidId(docId) && isSignedIn();
+      allow list: if isSignedIn();
+      allow create, update: if isValidId(docId) && isEditorOrAdmin();
+      allow delete: if isValidId(docId) && isAdmin();
+    }
+
+    match /settings/{docId} {
+      allow get: if isValidId(docId) && isSignedIn();
+      allow list: if false;
+      allow create, update, delete: if isValidId(docId) && isAdmin();
+    }
+
+    match /courses/{docId} {
+      allow get: if isValidId(docId) && isSignedIn();
+      allow list: if isSignedIn();
+      allow create, update: if isValidId(docId) && isEditorOrAdmin();
+      allow delete: if isValidId(docId) && isAdmin();
+    }
+
+    match /attendance/{docId} {
+      allow get: if isValidId(docId) && isSignedIn();
+      allow list: if isSignedIn();
+      allow create, update: if isValidId(docId) && isEditorOrAdmin();
+      allow delete: if isValidId(docId) && isAdmin();
+    }
+
+    match /reports/{docId} {
+      allow get: if isValidId(docId) && isSignedIn();
+      allow list: if isSignedIn();
+      allow create, update: if isValidId(docId) && isEditorOrAdmin();
+      allow delete: if isValidId(docId) && isAdmin();
+    }
+
+    // Startup Connection Check Document
+    match /test/{docId} {
+      allow get: if docId == 'connection';
+      allow list, write: if false;
+    }
+  }
+}

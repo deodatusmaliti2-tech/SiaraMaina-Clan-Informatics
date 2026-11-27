@@ -1,0 +1,16 @@
+[
+  {
+    "id": "sec-2f65b0d0-5",
+    "eventType": "LOGIN_SUCCESS",
+    "email": "dmaliti@researchlinktz.com",
+    "displayName": "dmaliti",
+    "role": "editor",
+    "ipAddress": "197.186.45.221, 169.254.169.126",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36",
+    "deviceType": "Desktop",
+    "browser": "Chrome",
+    "os": "Windows 11/10",
+    "status": "SUCCESS",
+    "createdAt": "2026-10-10T13:50:04.586Z"
+  }
+]

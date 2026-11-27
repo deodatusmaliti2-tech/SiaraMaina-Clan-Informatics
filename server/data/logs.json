@@ -1,0 +1,26 @@
+[
+  {
+    "id": "log-1795777552706",
+    "eventType": "USER_DELETED",
+    "action": "Administrator deodatusmaliti2@gmail.com deleted user user-smoke-1795777552670 (smoke.test@example.com)",
+    "actorEmail": "deodatusmaliti2@gmail.com",
+    "targetId": "user-smoke-1795777552670",
+    "timestamp": "2026-11-27T11:05:52.706Z"
+  },
+  {
+    "id": "log-1795777552700",
+    "eventType": "USER_STATUS_CHANGE",
+    "action": "Administrator deodatusmaliti2@gmail.com set user smoke.test@example.com active=false",
+    "actorEmail": "deodatusmaliti2@gmail.com",
+    "targetId": "user-smoke-1795777552670",
+    "timestamp": "2026-11-27T11:05:52.699Z"
+  },
+  {
+    "id": "log-1795777552687",
+    "eventType": "USER_PERMISSION_CHANGE",
+    "action": "Administrator deodatusmaliti2@gmail.com updated user smoke.test@example.com: role=viewer, approved=true",
+    "actorEmail": "deodatusmaliti2@gmail.com",
+    "targetId": "user-smoke-1795777552670",
+    "timestamp": "2026-11-27T11:05:52.687Z"
+  }
+]

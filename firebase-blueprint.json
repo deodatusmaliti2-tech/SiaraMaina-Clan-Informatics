@@ -1,0 +1,206 @@
+{
+  "entities": {
+    "ClanMember": {
+      "title": "Clan Member",
+      "description": "Information stored for each clan member in the private directory.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "recordId": { "type": "string", "maxLength": 128 },
+        "clanMemberNumber": { "type": "string", "maxLength": 64 },
+        "firstName": { "type": "string", "maxLength": 120 },
+        "middleName": { "type": "string", "maxLength": 120 },
+        "lastName": { "type": "string", "maxLength": 120 },
+        "sex": { "type": "string", "enum": ["Male", "Female", "Not Recorded", ""] },
+        "branchType": { "type": "string", "maxLength": 64 },
+        "honorific": { "type": "string", "maxLength": 64 },
+        "dob": { "type": "string", "maxLength": 64 },
+        "birthPeriod": { "type": "string", "maxLength": 120 },
+        "placeOfBirth": { "type": "string", "maxLength": 160 },
+        "deceased": { "type": "boolean" },
+        "dod": { "type": "string", "maxLength": 64 },
+        "deathAge": { "type": "string", "maxLength": 32 },
+        "causeOfDeath": { "type": "string", "maxLength": 240 },
+        "fatherId": { "type": "string", "maxLength": 128 },
+        "motherId": { "type": "string", "maxLength": 128 },
+        "spouseId": { "type": "string", "maxLength": 128 },
+        "siblingIds": { "type": "array" },
+        "maritalStatus": { "type": "string", "maxLength": 64 },
+        "education": { "type": "string", "maxLength": 160 },
+        "course": { "type": "string", "maxLength": 160 },
+        "employment": { "type": "string", "maxLength": 120 },
+        "occupation": { "type": "string", "maxLength": 160 },
+        "organization": { "type": "string", "maxLength": 160 },
+        "religion": { "type": "string", "maxLength": 120 },
+        "denomination": { "type": "string", "maxLength": 120 },
+        "phone": { "type": "string", "maxLength": 64 },
+        "whatsapp": { "type": "string", "maxLength": 64 },
+        "email": { "type": "string", "maxLength": 254 },
+        "location": { "type": "string", "maxLength": 200 },
+        "narrative": { "type": "string", "maxLength": 20000 },
+        "photo": { "type": "string", "maxLength": 500000 },
+        "active": { "type": "boolean" },
+        "deleted": { "type": "boolean" },
+        "version": { "type": "number" },
+        "createdBy": { "type": "string", "maxLength": 254 },
+        "lastModifiedBy": { "type": "string", "maxLength": 254 },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "firstName", "lastName"]
+    },
+    "User": {
+      "title": "User",
+      "description": "Information stored for each logged-in system user.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "email": { "type": "string", "maxLength": 254 },
+        "displayName": { "type": "string", "maxLength": 160 },
+        "role": { "type": "string", "enum": ["admin", "editor", "viewer"] },
+        "branch": { "type": "string", "maxLength": 64 },
+        "approved": { "type": "boolean" },
+        "active": { "type": "boolean" },
+        "phone": { "type": "string", "maxLength": 64 },
+        "location": { "type": "string", "maxLength": 200 },
+        "bio": { "type": "string", "maxLength": 2000 },
+        "photoURL": { "type": "string", "maxLength": 500000 },
+        "pendingRoleAssignment": { "type": "boolean" },
+        "registeredRemotely": { "type": "boolean" },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "lastLoginAt": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "string", "maxLength": 64 },
+        "updatedBy": { "type": "string", "maxLength": 254 }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "ActivityLog": {
+      "title": "Activity Log",
+      "description": "Security audit logs for user authentication events and administrative changes to clan records.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "eventType": { "type": "string", "maxLength": 80 },
+        "action": { "type": "string", "maxLength": 500 },
+        "actorUid": { "type": "string", "maxLength": 128 },
+        "actorEmail": { "type": "string", "maxLength": 254 },
+        "actorRole": { "type": "string", "maxLength": 32 },
+        "targetId": { "type": "string", "maxLength": 128 },
+        "details": { "type": "string", "maxLength": 4000 },
+        "timestamp": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["eventType", "actorEmail", "timestamp"]
+    },
+    "Submission": {
+      "title": "Submission",
+      "description": "Idempotency tracking records for submitted member operations",
+      "type": "object",
+      "properties": {
+        "memberId": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "createdBy": { "type": "string", "maxLength": 254 }
+      },
+      "required": ["memberId", "createdAt", "createdBy"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "System alerts and administrator notifications for remote user registrations",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "type": { "type": "string", "maxLength": 64 },
+        "title": { "type": "string", "maxLength": 160 },
+        "message": { "type": "string", "maxLength": 500 },
+        "userUid": { "type": "string", "maxLength": 128 },
+        "userEmail": { "type": "string", "maxLength": 254 },
+        "displayName": { "type": "string", "maxLength": 160 },
+        "branch": { "type": "string", "maxLength": 64 },
+        "role": { "type": "string", "maxLength": 32 },
+        "status": { "type": "string", "maxLength": 32 },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "timestamp": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["type", "userUid"]
+    },
+    "LedgerDocument": {
+      "title": "Genealogical Ledger Document",
+      "description": "Consolidated genealogical ledger document",
+      "type": "object",
+      "properties": {
+        "project": { "type": "string", "maxLength": 160 },
+        "records": { "type": "array" },
+        "lastUpdated": { "type": "string", "maxLength": 64 },
+        "exportedAt": { "type": "string", "maxLength": 64 }
+      }
+    },
+    "SharedResource": {
+      "title": "Shared Clan Resource",
+      "description": "Announcements, settings, courses, attendance, and reports",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "maxLength": 200 },
+        "updatedAt": { "type": "string", "maxLength": 64 },
+        "updatedBy": { "type": "string", "maxLength": 254 }
+      }
+    },
+    "ConnectionTest": {
+      "title": "Connection Test",
+      "description": "Connectivity verification document",
+      "type": "object",
+      "properties": {
+        "status": { "type": "string", "maxLength": 32 }
+      }
+    }
+  },
+  "firestore": {
+    "/siaraMainaClan/{docId}": {
+      "schema": "LedgerDocument",
+      "description": "Entire records database containing the combined genealogical ledger"
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User registry containing system permission roles and profile PII"
+    },
+    "/ActivityLogs/{logId}": {
+      "schema": "ActivityLog",
+      "description": "Immutable security monitoring collection for authentication events and admin mutations"
+    },
+    "/members/{memberId}": {
+      "schema": "ClanMember",
+      "description": "Individual clan member profile documents repository"
+    },
+    "/submissions/{subId}": {
+      "schema": "Submission",
+      "description": "Idempotency records tracking member form submissions to avoid duplicates"
+    },
+    "/notifications/{notifId}": {
+      "schema": "Notification",
+      "description": "System alerts and administrator notifications for remote user registrations"
+    },
+    "/announcements/{docId}": {
+      "schema": "SharedResource",
+      "description": "Clan notices and community updates"
+    },
+    "/settings/{docId}": {
+      "schema": "SharedResource",
+      "description": "Application settings and system flags"
+    },
+    "/courses/{docId}": {
+      "schema": "SharedResource",
+      "description": "Education modules"
+    },
+    "/attendance/{docId}": {
+      "schema": "SharedResource",
+      "description": "Clan gathering attendance"
+    },
+    "/reports/{docId}": {
+      "schema": "SharedResource",
+      "description": "Generated genealogical reports"
+    },
+    "/test/{docId}": {
+      "schema": "ConnectionTest",
+      "description": "Startup Firestore connection verification document"
+    }
+  }
+}

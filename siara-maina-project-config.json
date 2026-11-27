@@ -1,0 +1,18 @@
+{
+  "project": "SiaraMaina Clan Informatics",
+  "version": "3.0.0",
+  "exportedAt": "2026-11-27T12:21:33.024Z",
+  "repository": "deodatusmaliti2-tech/SiaraMaina-Clan-Informatics",
+  "recordsCount": 180,
+  "environment": "production",
+  "scope": "Full Application Clone: Frontend, Backend Server, Configurations, Rules, and Datasets",
+  "features": {
+    "fullAppClone": true,
+    "eightTreeStyles": true,
+    "realtimeFirestore": true,
+    "googleSheetsBidirectionalSync": true,
+    "userManagementAndRBAC": true,
+    "customBranchPalettes": true,
+    "dynamicPrintStudio": true
+  }
+}
