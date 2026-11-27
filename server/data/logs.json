@@ -1,13 +1,5 @@
 [
   {
-    "id": "log-1795782096439",
-    "eventType": "GITHUB_PUSH",
-    "action": "Complete application clone published to deodatusmaliti2-tech/SiaraMaina-Clan-Informatics: Full application clone: all app configurations, codebase & clan dataset (180 records) (138 files)",
-    "actorEmail": "deodatusmaliti2@gmail.com",
-    "targetId": "5521127",
-    "timestamp": "2026-11-27T12:21:36.439Z"
-  },
-  {
     "id": "log-1795777552706",
     "eventType": "USER_DELETED",
     "action": "Administrator deodatusmaliti2@gmail.com deleted user user-smoke-1795777552670 (smoke.test@example.com)",

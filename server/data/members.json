@@ -4960,7 +4960,7 @@
     "dod": "",
     "deathAge": "",
     "causeOfDeath": "Not Recorded",
-    "fatherId": "",
+    "fatherId": "CLAN-000125",
     "motherId": "",
     "spouseId": "",
     "siblingIds": [
@@ -4984,10 +4984,10 @@
     "historicalLocation": "",
     "photo": "",
     "employment": "Self-employed",
-    "updatedAt": "2026-11-27T11:27:50.322Z",
+    "updatedAt": "2026-11-27T17:15:28.125Z",
     "lastModifiedBy": "server_autosync",
     "biography": "",
-    "version": 3
+    "version": 4
   },
   {
     "id": "CLAN-000129",

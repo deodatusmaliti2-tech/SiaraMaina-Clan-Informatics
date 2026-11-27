@@ -219,5 +219,20 @@
     "deletedAt": "2026-11-27T12:07:11.955Z",
     "deletedBy": "google_sheets_sync",
     "sheetConfirmedDeletedAt": "2026-11-27T12:07:11.973Z"
+  },
+  {
+    "id": "CLAN-000280",
+    "firstName": "MVUA",
+    "deletedAt": "2026-11-27T17:23:27.699Z",
+    "deletedBy": "google_sheets_sync",
+    "sheetConfirmedDeletedAt": "2026-11-27T17:23:27.713Z"
+  },
+  {
+    "id": "rec-1795800163669-fpvjd",
+    "clanMemberNumber": "CLAN 000182",
+    "firstName": "HALI",
+    "deletedAt": "2026-11-27T17:24:42.630Z",
+    "deletedBy": "google_sheets_sync",
+    "sheetConfirmedDeletedAt": "2026-11-27T17:24:42.647Z"
   }
 ]
